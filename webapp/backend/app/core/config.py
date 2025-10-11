@@ -3,8 +3,8 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql+asyncpg://localhost/onboarding_db"
-    JWT_SECRET: str = "change-this-secret-key"
+    DATABASE_URL: str = "read-it-from-env"
+    JWT_SECRET: str = "read-it-from-env"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 120
     
