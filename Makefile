@@ -10,3 +10,17 @@ install:
 		uv pip install --python .venv/bin/python -e .
 	# Install frontend dependencies
 	cd webapp/frontend && npm install
+
+.PHONY: frontend-up frontend.up backend-up backend.up
+
+# Run the frontend dev server (Vite)
+frontend-up frontend.up:
+	cd webapp/frontend && npm run dev
+
+# Run the backend dev server (uvicorn)
+# Uses local venv's uvicorn if available, otherwise falls back to system uvicorn
+backend-up backend.up:
+	cd webapp/backend && ( \
+		[ -x .venv/bin/uvicorn ] && .venv/bin/uvicorn app.main:app --reload --port 8000 \
+		|| uvicorn app.main:app --reload --port 8000 \
+	)

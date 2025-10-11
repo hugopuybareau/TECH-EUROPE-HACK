@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { templateParts } from "@/lib/demo-data";
 import { Plus, GripVertical, Trash2, Eye } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { TemplatePart } from "@/types";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { toast } from "@/components/ui/sonner";
 
 function SortableStep({ part, onRemove }: { part: TemplatePart; onRemove: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: part.id });
@@ -49,9 +52,72 @@ function SortableStep({ part, onRemove }: { part: TemplatePart; onRemove: () => 
 
 export default function TemplateComposer() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [templateName, setTemplateName] = useState("New Template");
   const [selectedParts, setSelectedParts] = useState<TemplatePart[]>([]);
+  const [roleKey, setRoleKey] = useState<"intern" | "manager" | "cto">("intern");
   const [searchQuery, setSearchQuery] = useState("");
+  const qc = useQueryClient();
+
+  type ApiTemplatePart = {
+    id: string;
+    company_id: string;
+    title: string;
+    description?: string | null;
+    role_key: string;
+    tags: string[];
+    fields: any[];
+    validators: any[];
+    created_at: string;
+    updated_at: string;
+  };
+
+  const mapApiToUi = (part: ApiTemplatePart): TemplatePart => ({
+    id: part.id,
+    title: part.title,
+    description: part.description ?? "",
+    role: part.role_key as any,
+    tags: part.tags || [],
+    fields: part.fields || [],
+    validators: part.validators || [],
+    updatedAt: part.updated_at,
+  });
+
+  const partsQuery = useQuery({
+    queryKey: ["template-parts", "all"],
+    queryFn: async () => {
+      const res = await api.get<ApiTemplatePart[]>(`/api/v1/template-parts`);
+      return res.map(mapApiToUi);
+    },
+  });
+
+  type ApiTemplate = {
+    id: string;
+    name: string;
+    role_key: "intern" | "manager" | "cto";
+    part_ids: string[];
+    status: "draft" | "published";
+    version: number;
+    updated_at: string;
+  };
+
+  const templateQuery = useQuery({
+    queryKey: ["template", id],
+    enabled: !!id,
+    queryFn: () => api.get<ApiTemplate>(`/api/v1/templates/${id}`),
+  });
+
+  useEffect(() => {
+    if (templateQuery.data && partsQuery.data) {
+      setTemplateName(templateQuery.data.name);
+      setRoleKey(templateQuery.data.role_key);
+      const partMap = new Map(partsQuery.data.map((p) => [p.id, p]));
+      const selected = templateQuery.data.part_ids
+        .map((pid) => partMap.get(pid))
+        .filter(Boolean) as TemplatePart[];
+      setSelectedParts(selected);
+    }
+  }, [templateQuery.data, partsQuery.data]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -83,12 +149,32 @@ export default function TemplateComposer() {
   };
 
   const filteredParts = searchQuery
-    ? templateParts.filter(
+    ? (partsQuery.data ?? []).filter(
         (part) =>
           part.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           part.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
       )
-    : templateParts;
+    : (partsQuery.data ?? []);
+
+  const createMutation = useMutation({
+    mutationFn: async (publish: boolean) => {
+      const res = await api.post<ApiTemplate>("/api/v1/templates", {
+        name: templateName,
+        role_key: roleKey,
+        part_ids: selectedParts.map((p) => p.id),
+      });
+      if (publish) {
+        await api.post(`/api/v1/templates/${res.id}/publish`);
+      }
+      return res;
+    },
+    onSuccess: async (_data, publish) => {
+      toast.success(publish ? "Template published" : "Draft saved");
+      qc.invalidateQueries({ queryKey: ["templates"] });
+      navigate("/templates");
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to save template"),
+  });
 
   return (
     <AppShell title="Template Composer">
@@ -101,13 +187,25 @@ export default function TemplateComposer() {
               className="text-2xl font-semibold h-auto py-2 border-0 px-0 focus-visible:ring-0"
             />
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            <div className="w-40">
+              <Select value={roleKey} onValueChange={(v) => setRoleKey(v as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="intern">Intern</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="cto">CTO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" onClick={() => navigate("/questionnaires/preview")}>
               <Eye className="mr-2 h-4 w-4" />
               Preview
             </Button>
-            <Button variant="outline">Save Draft</Button>
-            <Button>Publish Version</Button>
+            <Button variant="outline" disabled={createMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => createMutation.mutate(false)}>Save Draft</Button>
+            <Button disabled={createMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => createMutation.mutate(true)}>Publish Version</Button>
           </div>
         </div>
 
@@ -123,6 +221,12 @@ export default function TemplateComposer() {
               />
             </CardHeader>
             <CardContent className="space-y-3 max-h-[600px] overflow-y-auto">
+              {partsQuery.isLoading && (
+                <div className="text-sm text-muted-foreground py-4">Loading parts…</div>
+              )}
+              {partsQuery.isError && (
+                <div className="text-sm text-red-500 py-4">Failed to load parts</div>
+              )}
               {filteredParts.map((part) => (
                 <div key={part.id} className="border border-border rounded-2xl p-4">
                   <div className="flex items-start justify-between mb-2">
