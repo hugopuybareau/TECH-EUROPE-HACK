@@ -58,3 +58,16 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Sonner toast custom styles */
+[data-sonner-toast][data-type="success"] {
+  background-color: rgb(240 253 244) !important;
+  color: rgb(20 83 45) !important;
+  border-color: rgb(187 247 208) !important;
+}
+
+[data-sonner-toast][data-type="error"] {
+  background-color: rgb(254 242 242) !important;
+  color: rgb(127 29 29) !important;
+  border-color: rgb(254 202 202) !important;
+}
