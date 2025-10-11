@@ -1,16 +1,12 @@
 from pydantic import BaseModel
 from uuid import UUID
-from typing import Dict, Any
 from datetime import datetime
 
 
-class EventResponse(BaseModel):
+class CompanyResponse(BaseModel):
     id: UUID
-    company_id: UUID
-    entity: str
-    entity_id: UUID
-    action: str
-    payload: Dict[str, Any]
+    name: str
+    domain: str
     created_at: datetime
     
     class Config:
