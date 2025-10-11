@@ -10,8 +10,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAuth } from "@/auth/AuthContext";
 
 export function TopNav() {
+  const { user, logout } = useAuth();
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background">
       <div className="flex h-16 items-center gap-6 px-6">
@@ -54,10 +66,10 @@ export function TopNav() {
               <Button variant="ghost" className="gap-2 pl-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    AU
+                    {user ? getInitials(user.name) : "AU"}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm">Admin User</span>
+                <span className="text-sm">{user?.name || "Admin User"}</span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
@@ -67,7 +79,7 @@ export function TopNav() {
               <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Log out</DropdownMenuItem>
+              <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
