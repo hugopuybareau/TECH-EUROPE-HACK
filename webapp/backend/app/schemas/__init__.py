@@ -3,7 +3,7 @@ from app.schemas.user import UserCreate, UserResponse, UserUpdate
 from app.schemas.company import CompanyResponse
 from app.schemas.template import (
     TemplatePartCreate, TemplatePartUpdate, TemplatePartResponse,
-    OnboardingTemplateCreate, OnboardingTemplateResponse
+    OnboardingTemplateCreate, OnboardingTemplateUpdate, OnboardingTemplateResponse
 )
 from app.schemas.questionnaire import (
     QuestionnaireCreate, QuestionnaireResponse, AnswersUpdate,
@@ -22,7 +22,7 @@ __all__ = [
     "UserCreate", "UserResponse", "UserUpdate",
     "CompanyResponse",
     "TemplatePartCreate", "TemplatePartUpdate", "TemplatePartResponse",
-    "OnboardingTemplateCreate", "OnboardingTemplateResponse",
+    "OnboardingTemplateCreate", "OnboardingTemplateUpdate", "OnboardingTemplateResponse",
     "QuestionnaireCreate", "QuestionnaireResponse", "AnswersUpdate",
     "ToolSetCreate", "ToolSetResponse",
     "OnboardingCreate", "OnboardingResponse", "StepValidate",

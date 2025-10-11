@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +7,19 @@ import { StatusPill } from "@/components/StatusPill";
 import { Plus, Edit, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "@/components/ui/sonner";
 
 type ApiTemplate = {
   id: string;
@@ -23,9 +35,24 @@ type ApiTemplate = {
 
 export default function Templates() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { data, isLoading, isError } = useQuery({
     queryKey: ["templates"],
     queryFn: () => api.get<ApiTemplate[]>("/api/v1/templates"),
+  });
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [toDelete, setToDelete] = useState<ApiTemplate | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => api.delete(`/api/v1/templates/${id}`),
+    onSuccess: () => {
+      toast.success("Template deleted");
+      setDeleteOpen(false);
+      setToDelete(null);
+      qc.invalidateQueries({ queryKey: ["templates"] });
+    },
+    onError: (e: any) => toast.error(e.message || "Failed to delete template"),
   });
 
   const grouped = (data ?? []).reduce((acc, t) => {
@@ -100,6 +127,17 @@ export default function Templates() {
                             <Eye className="h-3 w-3 mr-1" />
                             Preview
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="flex-1"
+                            onClick={() => {
+                              setToDelete(template);
+                              setDeleteOpen(true);
+                            }}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -110,6 +148,27 @@ export default function Templates() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete template?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove
+              {toDelete ? ` "${toDelete.name}"` : " this template"}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => toDelete && deleteMutation.mutate(toDelete.id)}
+              disabled={deleteMutation.isLoading}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppShell>
   );
 }

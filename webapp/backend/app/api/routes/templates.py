@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from typing import Optional
 from uuid import UUID
 from app.db.session import get_db
 from app.models.template import OnboardingTemplate, TemplateStatus
 from app.models.user import User
-from app.schemas.template import OnboardingTemplateCreate, OnboardingTemplateResponse
+from app.schemas.template import OnboardingTemplateCreate, OnboardingTemplateUpdate, OnboardingTemplateResponse
 from app.schemas.common import success_response, error_response
 from app.api.deps import get_current_user, require_admin
 
@@ -79,6 +79,36 @@ async def get_template(
     response = OnboardingTemplateResponse.from_orm(template)
     return success_response(response.dict())
 
+@router.patch("/{template_id}")
+async def update_template(
+    template_id: UUID,
+    update: OnboardingTemplateUpdate,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(OnboardingTemplate).where(
+            and_(
+                OnboardingTemplate.id == template_id,
+                OnboardingTemplate.company_id == current_user.company_id
+            )
+        )
+    )
+    template = result.scalar_one_or_none()
+
+    if not template:
+        return error_response("NOT_FOUND", "Template not found")
+
+    update_data = update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(template, field, value)
+
+    await db.commit()
+    await db.refresh(template)
+
+    response = OnboardingTemplateResponse.from_orm(template)
+    return success_response(response.dict())
+
 
 @router.post("/{template_id}/publish")
 async def publish_template(
@@ -102,9 +132,43 @@ async def publish_template(
     template.status = TemplateStatus.PUBLISHED
     await db.commit()
     await db.refresh(template)
+
+    # Remove any other drafts with the same name and role for this company
+    await db.execute(
+        delete(OnboardingTemplate).where(
+            and_(
+                OnboardingTemplate.company_id == current_user.company_id,
+                OnboardingTemplate.name == template.name,
+                OnboardingTemplate.role_key == template.role_key,
+                OnboardingTemplate.status == TemplateStatus.DRAFT,
+                OnboardingTemplate.id != template.id,
+            )
+        )
+    )
+    await db.commit()
     
     return success_response({
         "id": template.id,
         "version": template.version,
         "status": template.status.value
     })
+
+
+@router.delete("/{template_id}")
+async def delete_template(
+    template_id: UUID,
+    current_user: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        delete(OnboardingTemplate).where(
+            and_(
+                OnboardingTemplate.id == template_id,
+                OnboardingTemplate.company_id == current_user.company_id,
+            )
+        )
+    )
+    await db.commit()
+    if result.rowcount == 0:
+        return error_response("NOT_FOUND", "Template not found")
+    return success_response({"deleted": True})

@@ -157,17 +157,24 @@ export default function TemplateComposer() {
       )
     : (partsQuery.data ?? []);
 
-  const createMutation = useMutation({
+  const saveMutation = useMutation({
     mutationFn: async (publish: boolean) => {
-      const res = await api.post<ApiTemplate>("/api/v1/templates", {
+      const body = {
         name: templateName,
         role_key: roleKey,
         part_ids: selectedParts.map((p) => p.id),
-      });
-      if (publish) {
-        await api.post(`/api/v1/templates/${res.id}/publish`);
+      };
+      let templateId = id as string | undefined;
+      if (templateId) {
+        await api.patch(`/api/v1/templates/${templateId}`, body);
+      } else {
+        const res = await api.post<ApiTemplate>("/api/v1/templates", body);
+        templateId = res.id;
       }
-      return res;
+      if (publish && templateId) {
+        await api.post(`/api/v1/templates/${templateId}/publish`);
+      }
+      return { id: templateId };
     },
     onSuccess: async (_data, publish) => {
       toast.success(publish ? "Template published" : "Draft saved");
@@ -205,8 +212,8 @@ export default function TemplateComposer() {
               <Eye className="mr-2 h-4 w-4" />
               Preview
             </Button>
-            <Button variant="outline" disabled={createMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => createMutation.mutate(false)}>Save Draft</Button>
-            <Button disabled={createMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => createMutation.mutate(true)}>Publish Version</Button>
+            <Button variant="outline" disabled={saveMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => saveMutation.mutate(false)}>Save Draft</Button>
+            <Button disabled={saveMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => saveMutation.mutate(true)}>Publish Version</Button>
           </div>
         </div>
 

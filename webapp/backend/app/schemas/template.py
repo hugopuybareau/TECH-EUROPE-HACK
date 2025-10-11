@@ -44,6 +44,12 @@ class OnboardingTemplateCreate(BaseModel):
     part_ids: List[UUID] = []
 
 
+class OnboardingTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    role_key: Optional[str] = None
+    part_ids: Optional[List[UUID]] = None
+
+
 class OnboardingTemplateResponse(BaseModel):
     id: UUID
     company_id: UUID
