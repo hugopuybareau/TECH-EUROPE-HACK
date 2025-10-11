@@ -212,8 +212,8 @@ export default function TemplateComposer() {
               <Eye className="mr-2 h-4 w-4" />
               Preview
             </Button>
-            <Button variant="outline" disabled={saveMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => saveMutation.mutate(false)}>Save Draft</Button>
-            <Button disabled={saveMutation.isLoading || selectedParts.length === 0 || !templateName} onClick={() => saveMutation.mutate(true)}>Publish Version</Button>
+            <Button variant="outline" disabled={saveMutation.isPending || selectedParts.length === 0 || !templateName} onClick={() => saveMutation.mutate(false)}>Save Draft</Button>
+            <Button disabled={saveMutation.isPending || selectedParts.length === 0 || !templateName} onClick={() => saveMutation.mutate(true)} className="bg-green-600 hover:bg-green-700 text-white">Publish Version</Button>
           </div>
         </div>
 

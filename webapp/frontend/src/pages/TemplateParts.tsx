@@ -208,7 +208,7 @@ export default function TemplateParts() {
             <h1 className="text-3xl font-semibold text-foreground">Template Parts</h1>
             <p className="text-muted-foreground mt-1">Reusable onboarding components with fields and validators</p>
           </div>
-          <Button onClick={openCreate}>
+          <Button onClick={openCreate} className="bg-green-600 hover:bg-green-700 text-white">
             <Plus className="mr-2 h-4 w-4" />
             New Template Part
           </Button>
@@ -242,7 +242,7 @@ export default function TemplateParts() {
               <p className="text-muted-foreground text-center mb-4">
                 No parts yet. Generate from a repo scan or create one manually.
               </p>
-              <Button onClick={openCreate}>
+              <Button onClick={openCreate} className="bg-green-600 hover:bg-green-700 text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 New Template Part
               </Button>
@@ -370,9 +370,10 @@ export default function TemplateParts() {
           <DialogFooter>
             <Button
               onClick={() => createMutation.mutate()}
-              disabled={!form.title || !form.role_key || !!fieldsState.error || !!validatorsState.error || createMutation.isLoading}
+              disabled={!form.title || !form.role_key || !!fieldsState.error || !!validatorsState.error || createMutation.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {createMutation.isLoading ? "Creating…" : "Create"}
+              {createMutation.isPending ? "Creating…" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/StatusPill";
-import { Plus, Edit, Eye } from "lucide-react";
+import { Plus, Edit, Eye, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -70,7 +70,7 @@ export default function Templates() {
             <h1 className="text-3xl font-semibold text-foreground">Onboarding Templates</h1>
             <p className="text-muted-foreground mt-1">Compose templates from reusable parts</p>
           </div>
-          <Button onClick={() => navigate("/templates/new")}>
+          <Button onClick={() => navigate("/templates/new")} className="bg-green-600 hover:bg-green-700 text-white">
             <Plus className="mr-2 h-4 w-4" />
             New Template
           </Button>
@@ -90,7 +90,7 @@ export default function Templates() {
               <p className="text-muted-foreground text-center mb-4">
                 Build your first onboarding template by assembling parts.
               </p>
-              <Button onClick={() => navigate("/templates/new")}>
+              <Button onClick={() => navigate("/templates/new")} className="bg-green-600 hover:bg-green-700 text-white">
                 <Plus className="mr-2 h-4 w-4" />
                 New Template
               </Button>
@@ -136,7 +136,7 @@ export default function Templates() {
                               setDeleteOpen(true);
                             }}
                           >
-                            Delete
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </CardContent>
