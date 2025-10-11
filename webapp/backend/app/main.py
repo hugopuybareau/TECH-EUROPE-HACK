@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from webapp.backend.app.api.routes import (
+from app.api.routes import (
     auth, companies, template_parts, templates,
     questionnaires, toolsets, onboardings, repos, events
 )
