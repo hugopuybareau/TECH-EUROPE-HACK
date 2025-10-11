@@ -32,6 +32,21 @@ class RepoScanResponse(BaseModel):
     summary: Dict[str, Any]
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+
+class TemplatePartData(BaseModel):
+    title: str
+    description: str
+    role_key: str
+    tags: list[str] = []
+    fields: list[Dict[str, Any]] = []
+    validators: list[Dict[str, Any]] = []
+
+
+class ScanResultPayload(BaseModel):
+    scan_id: UUID
+    summary_markdown: str
+    template_parts: list[TemplatePartData]

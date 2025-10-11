@@ -1,0 +1,132 @@
+{
+    "name": "Repo Scan → Template Parts Generator",
+    "nodes": [
+        {
+            "parameters": {
+                "path": "repo-scan/start",
+                "method": "POST",
+                "responseMode": "onReceived",
+                "options": {}
+            },
+            "id": "Webhook_Start",
+            "name": "Webhook Start",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "command": "rm -rf /tmp/{{ $json[\"body\"][\"repo_id\"] }} && git clone {{ $json[\"body\"][\"repo_url\"] }} /tmp/{{ $json[\"body\"][\"repo_id\"] }}",
+                "options": {
+                    "shell": "bash"
+                }
+            },
+            "id": "Clone_Repo",
+            "name": "Clone Repository",
+            "type": "n8n-nodes-base.executeCommand",
+            "typeVersion": 1,
+            "position": [
+                500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const fs = require('fs');\nconst path = `/tmp/${$json[\"body\"][\"repo_id\"]}`;\n\nfunction detectStack(files) {\n  if (files.includes('package.json')) return 'node';\n  if (files.includes('requirements.txt') || files.includes('pyproject.toml')) return 'python';\n  if (files.includes('Dockerfile')) return 'docker';\n  return 'generic';\n}\n\nconst files = fs.readdirSync(path);\nconst stack = detectStack(files);\n\nlet markdown = `# Repo Summary\\nDetected stack: ${stack}\\n`;\nif (stack === 'node') markdown += `Install deps: pnpm install or npm install\\nRun: pnpm run dev or npm run start`;\nif (stack === 'python') markdown += `Install deps: pip install -r requirements.txt\\nRun: uvicorn app.main:app --reload`;\nif (stack === 'docker') markdown += `Build: docker build -t app .\\nRun: docker run -p 8000:8000 app`;\nif (stack === 'generic') markdown += `Generic project detected.`;\n\nreturn [{ json: { stack, markdown } }];"
+            },
+            "id": "Analyze_Repo",
+            "name": "Analyze Repo",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const stack = $json.stack;\nlet templates = [];\n\nif (stack === 'python') {\n  templates = [\n    { title: 'Setup IDE and extensions', description: 'Install VSCode and Python extension pack.' },\n    { title: 'Clone repository', description: 'git clone {{repo_url}} && cd {{repo_name}}' },\n    { title: 'Install dependencies', description: 'pip install -r requirements.txt' },\n    { title: 'First run', description: 'uvicorn app.main:app --reload and open http://localhost:8000/docs' }\n  ];\n} else if (stack === 'node') {\n  templates = [\n    { title: 'Setup IDE and extensions', description: 'Install VSCode and Node.js extensions.' },\n    { title: 'Clone repository', description: 'git clone {{repo_url}} && cd {{repo_name}}' },\n    { title: 'Install dependencies', description: 'pnpm install or npm install' },\n    { title: 'First run', description: 'pnpm run dev or npm run start and open http://localhost:3000' }\n  ];\n} else {\n  templates = [\n    { title: 'Setup IDE and extensions', description: 'Install VSCode with recommended extensions.' },\n    { title: 'Clone repository', description: 'git clone {{repo_url}} && cd {{repo_name}}' },\n    { title: 'Install dependencies', description: 'Refer to project README.' },\n    { title: 'First run', description: 'Follow README instructions.' }\n  ];\n}\n\nreturn [{ json: { stack, templates, markdown: $json.markdown } }];"
+            },
+            "id": "Generate_Templates",
+            "name": "Generate Template Parts",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                1100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "requestMethod": "POST",
+                "url": "{{BACKEND_URL}}/api/repos/scan-result",
+                "jsonParameters": true,
+                "options": {},
+                "bodyParametersJson": "{ \"scan_id\": \"{{$json[\"body\"][\"scan_id\"]}}\", \"summary_markdown\": \"{{$json.markdown}}\", \"template_parts\": {{$json.templates}} }"
+            },
+            "id": "Post_Backend",
+            "name": "Send Results to Backend",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                1400,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Start": {
+            "main": [
+                [
+                    {
+                        "node": "Clone Repository",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Clone Repository": {
+            "main": [
+                [
+                    {
+                        "node": "Analyze Repo",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Analyze Repo": {
+            "main": [
+                [
+                    {
+                        "node": "Generate Template Parts",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate Template Parts": {
+            "main": [
+                [
+                    {
+                        "node": "Send Results to Backend",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": false,
+    "settings": {},
+    "id": "silveragents_repo_scan_v1",
+    "meta": {
+        "instanceId": "silveragents-hackathon"
+    }
+}

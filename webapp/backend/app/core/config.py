@@ -7,7 +7,8 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "read-it-from-env"
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRATION_MINUTES: int = 120
-    
+    N8N_WEBHOOK_URL: str = ""  # n8n webhook URL for repo scanning
+
     class Config:
         env_file = ".env"
 
