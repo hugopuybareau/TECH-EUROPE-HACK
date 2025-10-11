@@ -12,11 +12,11 @@ interface StatusPillProps {
 }
 
 const statusStyles: Record<StatusType, string> = {
-  draft: "bg-secondary text-secondary-foreground",
+  draft: "bg-orange-300 text-white",
   published: "bg-green-600 text-white",
   connected: "bg-primary text-primary-foreground",
   not_connected: "bg-secondary text-secondary-foreground",
-  passed: "bg-orange-500 text-white",
+  passed: "bg-orange-300 text-white",
   failed: "bg-destructive text-destructive-foreground",
   active: "bg-primary text-primary-foreground",
   completed: "bg-green-600 text-white",

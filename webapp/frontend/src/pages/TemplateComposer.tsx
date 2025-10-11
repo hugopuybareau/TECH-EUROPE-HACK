@@ -10,7 +10,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { TemplatePart } from "@/types";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -53,6 +53,7 @@ function SortableStep({ part, onRemove }: { part: TemplatePart; onRemove: () => 
 
 export default function TemplateComposer() {
   const navigate = useNavigate();
+  const location = useLocation() as { state?: any };
   const { id } = useParams();
   const [templateName, setTemplateName] = useState("New Template");
   const [selectedParts, setSelectedParts] = useState<TemplatePart[]>([]);
@@ -119,6 +120,19 @@ export default function TemplateComposer() {
       setSelectedParts(selected);
     }
   }, [templateQuery.data, partsQuery.data]);
+
+  // Hydrate from draft state when creating a new template and coming back from preview
+  useEffect(() => {
+    if (id) return; // only for new templates
+    const draft = location.state?.draft as
+      | { name?: string; role_key?: "intern" | "manager" | "cto"; parts?: TemplatePart[] }
+      | undefined;
+    if (draft && selectedParts.length === 0) {
+      if (draft.name) setTemplateName(draft.name);
+      if (draft.role_key) setRoleKey(draft.role_key);
+      if (draft.parts) setSelectedParts(draft.parts);
+    }
+  }, [id, location.state]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -208,7 +222,25 @@ export default function TemplateComposer() {
                 </SelectContent>
               </Select>
             </div>
-            <Button variant="outline" onClick={() => navigate("/questionnaires/preview")}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (id) {
+                  navigate(`/questionnaires/preview?templateId=${id}` , { state: { from: "composer" } });
+                } else {
+                  navigate(`/questionnaires/preview`, {
+                    state: {
+                      draft: {
+                        name: templateName,
+                        role_key: roleKey,
+                        parts: selectedParts,
+                      },
+                      from: "composer",
+                    },
+                  });
+                }
+              }}
+            >
               <Eye className="mr-2 h-4 w-4" />
               Preview
             </Button>
