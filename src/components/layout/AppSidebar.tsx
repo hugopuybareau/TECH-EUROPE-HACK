@@ -7,8 +7,6 @@ import {
   ListChecks,
   Users,
   Route,
-  BarChart3,
-  History,
   Settings,
 } from "lucide-react";
 import {
@@ -30,8 +28,6 @@ const menuItems = [
   { title: "Templates", url: "/templates", icon: ListChecks },
   { title: "Invites & Access", url: "/access", icon: Users },
   { title: "Onboardings", url: "/onboardings", icon: Route },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Events & Audit", url: "/events", icon: History },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 

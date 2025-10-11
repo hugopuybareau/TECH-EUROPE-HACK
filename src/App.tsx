@@ -12,8 +12,6 @@ import TemplateComposer from "./pages/TemplateComposer";
 import Access from "./pages/Access";
 import Onboardings from "./pages/Onboardings";
 import OnboardingDetail from "./pages/OnboardingDetail";
-import Analytics from "./pages/Analytics";
-import Events from "./pages/Events";
 import Settings from "./pages/Settings";
 import QuestionnairePreview from "./pages/QuestionnairePreview";
 import NotFound from "./pages/NotFound";
@@ -37,8 +35,6 @@ const App = () => (
           <Route path="/access" element={<Access />} />
           <Route path="/onboardings" element={<Onboardings />} />
           <Route path="/onboardings/:id" element={<OnboardingDetail />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/events" element={<Events />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/questionnaires/preview" element={<QuestionnairePreview />} />
           <Route path="*" element={<NotFound />} />
