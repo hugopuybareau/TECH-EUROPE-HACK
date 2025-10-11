@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { getColorForText } from "@/lib/colors";
 import { Plus, GripVertical, Trash2, Eye } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -41,7 +42,7 @@ function SortableStep({ part, onRemove }: { part: TemplatePart; onRemove: () => 
             <Badge variant="secondary">{part.fields.length} fields</Badge>
             <Badge variant="secondary">{part.validators.length} validators</Badge>
             {part.tags.map((tag) => (
-              <Badge key={tag} variant="outline">{tag}</Badge>
+              <Badge key={tag} variant="outline" className={getColorForText(tag)}>{tag}</Badge>
             ))}
           </div>
         </div>
@@ -237,7 +238,7 @@ export default function TemplateComposer() {
                   </div>
                   <div className="flex gap-1 flex-wrap mb-2">
                     {part.tags.map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                      <Badge key={tag} variant="outline" className={`text-xs ${getColorForText(tag)}`}>{tag}</Badge>
                     ))}
                   </div>
                   <div className="flex gap-2 text-xs text-muted-foreground">

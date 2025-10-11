@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getColorForText } from "@/lib/colors";
 import {
   Table,
   TableBody,
@@ -267,12 +268,12 @@ export default function TemplateParts() {
                     <TableRow key={part.id}>
                       <TableCell className="font-medium">{part.title}</TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="capitalize">{part.role}</Badge>
+                        <Badge variant="secondary" className={`capitalize ${getColorForText(part.role)}`}>{part.role}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
                           {part.tags.map((tag) => (
-                            <Badge key={tag} variant="outline">{tag}</Badge>
+                            <Badge key={tag} variant="outline" className={getColorForText(tag)}>{tag}</Badge>
                           ))}
                         </div>
                       </TableCell>
