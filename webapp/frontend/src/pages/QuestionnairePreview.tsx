@@ -14,7 +14,7 @@ import type { TemplatePart } from "@/types";
 type ApiTemplate = {
   id: string;
   name: string;
-  role_key: "intern" | "manager" | "cto";
+  role_key: "intern" | "manager" | "cto" | "dev";
   part_ids: string[];
   status: "draft" | "published";
   version: number;
@@ -51,7 +51,7 @@ export default function QuestionnairePreview() {
   const navigate = useNavigate();
   const from = location.state?.from as string | undefined;
   const draft = location.state?.draft as
-    | { name: string; role_key: "intern" | "manager" | "cto"; parts: TemplatePart[] }
+    | { name: string; role_key: "intern" | "manager" | "cto" | "dev"; parts: TemplatePart[] }
     | undefined;
 
   const templateId = searchParams.get("templateId");

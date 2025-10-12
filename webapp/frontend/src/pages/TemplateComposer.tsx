@@ -57,7 +57,7 @@ export default function TemplateComposer() {
   const { id } = useParams();
   const [templateName, setTemplateName] = useState("New Template");
   const [selectedParts, setSelectedParts] = useState<TemplatePart[]>([]);
-  const [roleKey, setRoleKey] = useState<"intern" | "manager" | "cto">("intern");
+  const [roleKey, setRoleKey] = useState<"intern" | "manager" | "cto" | "dev">("intern");
   const [searchQuery, setSearchQuery] = useState("");
   const qc = useQueryClient();
 
@@ -96,7 +96,7 @@ export default function TemplateComposer() {
   type ApiTemplate = {
     id: string;
     name: string;
-    role_key: "intern" | "manager" | "cto";
+    role_key: "intern" | "manager" | "cto" | "dev";
     part_ids: string[];
     status: "draft" | "published";
     version: number;
@@ -125,7 +125,7 @@ export default function TemplateComposer() {
   useEffect(() => {
     if (id) return; // only for new templates
     const draft = location.state?.draft as
-      | { name?: string; role_key?: "intern" | "manager" | "cto"; parts?: TemplatePart[] }
+      | { name?: string; role_key?: "intern" | "manager" | "cto" | "dev"; parts?: TemplatePart[] }
       | undefined;
     if (draft && selectedParts.length === 0) {
       if (draft.name) setTemplateName(draft.name);
@@ -219,6 +219,7 @@ export default function TemplateComposer() {
                   <SelectItem value="intern">Intern</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="cto">CTO</SelectItem>
+                  <SelectItem value="dev">Dev</SelectItem>
                 </SelectContent>
               </Select>
             </div>

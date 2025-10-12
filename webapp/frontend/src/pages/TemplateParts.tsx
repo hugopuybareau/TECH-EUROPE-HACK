@@ -69,7 +69,7 @@ function mapApiToUi(part: ApiTemplatePart): TemplatePart {
 type FormState = {
   title: string;
   description: string;
-  role_key: "intern" | "manager" | "cto" | "";
+  role_key: "intern" | "manager" | "cto" | "dev" | "";
   tagsInput: string; // comma-separated
   fieldsJson: string; // JSON array
   validatorsJson: string; // JSON array
@@ -224,6 +224,7 @@ export default function TemplateParts() {
               <SelectItem value="intern">Intern</SelectItem>
               <SelectItem value="manager">Manager</SelectItem>
               <SelectItem value="cto">CTO</SelectItem>
+              <SelectItem value="dev">Dev</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -338,6 +339,7 @@ export default function TemplateParts() {
                     <SelectItem value="intern">Intern</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="cto">CTO</SelectItem>
+                    <SelectItem value="dev">Dev</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -402,6 +404,7 @@ export default function TemplateParts() {
                       <SelectItem value="intern">Intern</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="cto">CTO</SelectItem>
+                      <SelectItem value="dev">Dev</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
