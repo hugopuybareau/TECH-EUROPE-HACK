@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -156,12 +157,18 @@ export default function QuestionnairePreview() {
                           {field.type === "textarea" ? (
                             <Textarea id={field.id} placeholder={`Enter ${field.label.toLowerCase()}`} disabled />
                           ) : field.type === "select" ? (
-                            <select id={field.id} className="w-full p-2 border border-border rounded-lg" disabled>
-                              <option>Select an option</option>
-                              {field.options?.map((option: string) => (
-                                <option key={option}>{option}</option>
-                              ))}
-                            </select>
+                            <Select>
+                              <SelectTrigger id={field.id}>
+                                <SelectValue placeholder="Select an option" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {field.options?.map((option: string) => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           ) : (
                             <Input
                               id={field.id}
@@ -258,16 +265,18 @@ export default function QuestionnairePreview() {
                           disabled
                         />
                       ) : field.type === "select" ? (
-                        <select
-                          id={field.id}
-                          className="w-full p-2 border border-border rounded-lg"
-                          disabled
-                        >
-                          <option>Select an option</option>
-                          {field.options?.map((option: string) => (
-                            <option key={option}>{option}</option>
-                          ))}
-                        </select>
+                        <Select>
+                          <SelectTrigger id={field.id}>
+                            <SelectValue placeholder="Select an option" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {field.options?.map((option: string) => (
+                              <SelectItem key={option} value={option}>
+                                {option}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
                         <Input
                           id={field.id}
