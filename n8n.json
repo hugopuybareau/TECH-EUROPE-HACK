@@ -1,132 +1,562 @@
 {
-    "name": "Repo Scan → Template Parts Generator",
-    "nodes": [
-        {
-            "parameters": {
-                "path": "repo-scan/start",
-                "method": "POST",
-                "responseMode": "onReceived",
-                "options": {}
-            },
-            "id": "Webhook_Start",
-            "name": "Webhook Start",
-            "type": "n8n-nodes-base.webhook",
-            "typeVersion": 1,
-            "position": [
-                200,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "command": "rm -rf /tmp/{{ $json[\"body\"][\"repo_id\"] }} && git clone {{ $json[\"body\"][\"repo_url\"] }} /tmp/{{ $json[\"body\"][\"repo_id\"] }}",
-                "options": {
-                    "shell": "bash"
-                }
-            },
-            "id": "Clone_Repo",
-            "name": "Clone Repository",
-            "type": "n8n-nodes-base.executeCommand",
-            "typeVersion": 1,
-            "position": [
-                500,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "functionCode": "const fs = require('fs');\nconst path = `/tmp/${$json[\"body\"][\"repo_id\"]}`;\n\nfunction detectStack(files) {\n  if (files.includes('package.json')) return 'node';\n  if (files.includes('requirements.txt') || files.includes('pyproject.toml')) return 'python';\n  if (files.includes('Dockerfile')) return 'docker';\n  return 'generic';\n}\n\nconst files = fs.readdirSync(path);\nconst stack = detectStack(files);\n\nlet markdown = `# Repo Summary\\nDetected stack: ${stack}\\n`;\nif (stack === 'node') markdown += `Install deps: pnpm install or npm install\\nRun: pnpm run dev or npm run start`;\nif (stack === 'python') markdown += `Install deps: pip install -r requirements.txt\\nRun: uvicorn app.main:app --reload`;\nif (stack === 'docker') markdown += `Build: docker build -t app .\\nRun: docker run -p 8000:8000 app`;\nif (stack === 'generic') markdown += `Generic project detected.`;\n\nreturn [{ json: { stack, markdown } }];"
-            },
-            "id": "Analyze_Repo",
-            "name": "Analyze Repo",
-            "type": "n8n-nodes-base.function",
-            "typeVersion": 1,
-            "position": [
-                800,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "functionCode": "const stack = $json.stack;\nlet templates = [];\n\nif (stack === 'python') {\n  templates = [\n    { title: 'Setup IDE and extensions', description: 'Install VSCode and Python extension pack.' },\n    { title: 'Clone repository', description: 'git clone {{repo_url}} && cd {{repo_name}}' },\n    { title: 'Install dependencies', description: 'pip install -r requirements.txt' },\n    { title: 'First run', description: 'uvicorn app.main:app --reload and open http://localhost:8000/docs' }\n  ];\n} else if (stack === 'node') {\n  templates = [\n    { title: 'Setup IDE and extensions', description: 'Install VSCode and Node.js extensions.' },\n    { title: 'Clone repository', description: 'git clone {{repo_url}} && cd {{repo_name}}' },\n    { title: 'Install dependencies', description: 'pnpm install or npm install' },\n    { title: 'First run', description: 'pnpm run dev or npm run start and open http://localhost:3000' }\n  ];\n} else {\n  templates = [\n    { title: 'Setup IDE and extensions', description: 'Install VSCode with recommended extensions.' },\n    { title: 'Clone repository', description: 'git clone {{repo_url}} && cd {{repo_name}}' },\n    { title: 'Install dependencies', description: 'Refer to project README.' },\n    { title: 'First run', description: 'Follow README instructions.' }\n  ];\n}\n\nreturn [{ json: { stack, templates, markdown: $json.markdown } }];"
-            },
-            "id": "Generate_Templates",
-            "name": "Generate Template Parts",
-            "type": "n8n-nodes-base.function",
-            "typeVersion": 1,
-            "position": [
-                1100,
-                300
-            ]
-        },
-        {
-            "parameters": {
-                "requestMethod": "POST",
-                "url": "{{BACKEND_URL}}/api/repos/scan-result",
-                "jsonParameters": true,
-                "options": {},
-                "bodyParametersJson": "{ \"scan_id\": \"{{$json[\"body\"][\"scan_id\"]}}\", \"summary_markdown\": \"{{$json.markdown}}\", \"template_parts\": {{$json.templates}} }"
-            },
-            "id": "Post_Backend",
-            "name": "Send Results to Backend",
-            "type": "n8n-nodes-base.httpRequest",
-            "typeVersion": 1,
-            "position": [
-                1400,
-                300
-            ]
-        }
-    ],
-    "connections": {
-        "Webhook Start": {
-            "main": [
-                [
-                    {
-                        "node": "Clone Repository",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Clone Repository": {
-            "main": [
-                [
-                    {
-                        "node": "Analyze Repo",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Analyze Repo": {
-            "main": [
-                [
-                    {
-                        "node": "Generate Template Parts",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        },
-        "Generate Template Parts": {
-            "main": [
-                [
-                    {
-                        "node": "Send Results to Backend",
-                        "type": "main",
-                        "index": 0
-                    }
-                ]
-            ]
-        }
+  "name": "Repo → Template Generator (HTTP + Retry + Error Handling)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "repo-scan",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "edcc2313-9596-4304-ae50-17532eff83a1",
+      "name": "Webhook: Repo Scan Trigger1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -5248,
+        784
+      ],
+      "webhookId": "2db2b1bb-a796-4b0c-ae25-8d29b9fbe9a0"
     },
-    "active": false,
-    "settings": {},
-    "id": "silveragents_repo_scan_v1",
-    "meta": {
-        "instanceId": "silveragents-hackathon"
+    {
+      "parameters": {
+        "command": "=set -euo pipefail\nrm -rf \"{{$json.repo_dir}}\" && mkdir -p \"{{$json.repo_dir}}\"\nGIT_SSH_COMMAND=\"ssh -o StrictHostKeyChecking=no\" git clone --depth 1 \"{{$json.repo_url}}\" \"{{$json.repo_dir}}\""
+      },
+      "id": "395b44e1-e962-48f1-be3a-6be8766c9f6d",
+      "name": "Clone Repo (shallow)1",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -4720,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.exitCode}}",
+              "operation": "equal"
+            }
+          ]
+        }
+      },
+      "id": "62111aaf-01c8-4f22-a343-3969eb9b5d7f",
+      "name": "IF: Clone OK?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -4384,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "command": "=# Keep this minimal & tolerant\n# (avoid -e for this step so minor find/tree issues don't abort)\nset -u\nset -o pipefail\n\nREPO_DIR=\"{{$node['Context vars1'].json.repo_dir}}\"\nTREE_OUT=\"$REPO_DIR/.scan_tree.txt\"\nINFO_OUT=\"$REPO_DIR/.scan_info.txt\"\n\n# 1) Directory listing (prefer tree, fallback to find)\nif command -v tree >/dev/null 2>&1; then\n  ( tree -L 3 -a \"$REPO_DIR\" || true ) | head -n 2000 > \"$TREE_OUT\"\nelse\n  ( find \"$REPO_DIR\" -print 2>/dev/null || ls -laR \"$REPO_DIR\" ) | head -n 2000 > \"$TREE_OUT\"\nfi\n\n# 2) Grab hints from common files (NO stray slashes; close parens correctly)\n: > \"$INFO_OUT\"\nFILES=$(\n  ( find \"$REPO_DIR\" -type f \\\n      \\( -name 'package.json' \\\n         -o -name 'pnpm-lock.yaml' \\\n         -o -name 'yarn.lock' \\\n         -o -name 'package-lock.json' \\\n         -o -name 'pyproject.toml' \\\n         -o -name 'requirements.txt' \\\n         -o -name 'Pipfile' \\\n         -o -name 'Pipfile.lock' \\\n         -o -name 'Makefile' \\\n         -o -name 'Dockerfile' \\\n         -o -name 'README.md' \\\n         -o -name 'vite.config.*' \\\n         -o -name 'next.config.*' \\\n         -o -name 'uvicorn.*' \\\n      \\) 2>/dev/null || true ) | head -n 20\n)\n\nfor f in $FILES; do\n  echo \"===== FILE: $f =====\" >> \"$INFO_OUT\"\n  ( head -n 200 \"$f\" || true ) >> \"$INFO_OUT\"\n  printf \"\\n\" >> \"$INFO_OUT\"\ndone\n\n# 3) Emit combined output to stdout for the LLM step\ncat \"$TREE_OUT\"\necho\necho \"===== SELECTED FILE CONTENTS =====\"\ncat \"$INFO_OUT\"\n"
+      },
+      "id": "8efa08ad-4f21-4536-a4d5-bc0eb19ff7f9",
+      "name": "Extract Repo Info1",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -4160,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $env.OPENAI_MODEL || 'gpt-5',\n  reasoning: { effort: 'low' }, // optional but speeds it up\n  max_output_tokens: 600,\n  input: [\n    {\n      role: 'system',\n      content: 'You are a repository analyst who summarizes onboarding details in Markdown.'\n    },\n    {\n      role: 'user',\n      content:\n        'Analyze the repository info and produce a concise Markdown summary focused on: ' +\n        'languages/frameworks, package manager, install commands, how to run the app, and where docs live (e.g. /docs).\\n\\n' +\n        'REPO STRUCTURE + HINTS:\\n\\n' +\n        String($json.stdout || '').slice(0, 12000)\n    }\n  ]\n}) }}\n",
+        "options": {}
+      },
+      "id": "c094a8eb-6925-4e86-b3e1-e288e4f65a2c",
+      "name": "OpenAI Summarize (Attempt 1)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -3904,
+        576
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "jnju2D2ZbdtG7a6i",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $env.OPENAI_MODEL || 'gpt-5',\n  max_output_tokens: 5000,\n  reasoning: { effort: 'low' },\n  input: [\n    {\n      role: 'system',\n      content: 'You generate deterministic onboarding template parts for developers.'\n    },\n    {\n      role: 'user',\n      content:\n        'Based on the following markdown summary, produce exactly 4 JSON objects representing onboarding template parts:\\n\\n' +\n        '1. IDE Setup & Extensions\\n' +\n        '2. Clone Repository\\n' +\n        '3. Install Dependencies\\n' +\n        '4. First Run & Documentation Access\\n\\n' +\n        'Return only a valid JSON array (no markdown, no comments, no trailing commas).\\n' +\n        'Every object MUST strictly follow this contract:\\n\\n' +\n        'REQUIRED KEYS (and only these keys):\\n' +\n        '- title (string)\\n' +\n        '- description (string)\\n' +\n        '- role_key (string, exactly \"dev\")\\n' +\n        '- tags (array of strings)\\n' +\n        '- fields (array of field objects)\\n' +\n        '- validators (array of validator objects; at least 1 per object)\\n\\n' +\n        'FIELDS ARRAY — each field object MUST be shaped EXACTLY like this (no extra keys):\\n' +\n        '{\\n' +\n        '  \"id\": \"f_<snake_case_id>\",\\n' +\n        '  \"type\": \"<one of: select | text | password | number | checkbox | textarea | url | email>\",\\n' +\n        '  \"label\": \"<human-readable label>\",\\n' +\n        '  \"options\": [\"<string>\", \"...\"] // REQUIRED for type=select; OMIT for other types\\n' +\n        '  \"required\": <boolean>\\n' +\n        '}\\n\\n' +\n        '— Always provide \"options\" whenever a discrete set makes sense (e.g., OS, IDE, package manager, node version strategy).\\n' +\n        '— Use consistent IDs prefixed with \"f_\" (e.g., f_ide, f_os, f_repo_url, f_package_manager).\\n' +\n        '— Provide 2–6 fields per object.\\n\\n' +\n        'VALIDATORS ARRAY — each validator object MUST be shaped EXACTLY like this (no extra keys):\\n' +\n        '{\\n' +\n        '  \"os\": \"<one of: mac | linux | windows>\",\\n' +\n        '  \"type\": \"<one of: command | file_exists | http_check | port_open>\",\\n' +\n        '  \"params\": { /* strict per type */ }\\n' +\n        '}\\n\\n' +\n        '— For type=command: params = { \"command\": \"<shell command string>\" }\\n' +\n        '— For type=file_exists: params = { \"path\": \"<absolute_or_relative_path>\" }\\n' +\n        '— For type=http_check: params = { \"url\": \"<http(s)://...>\", \"expect_status\": <number> }\\n' +\n        '— For type=port_open: params = { \"host\": \"<hostname_or_ip>\", \"port\": <number> }\\n' +\n        '— Provide at least ONE validator per object; use OS-specific variants where relevant (mac/linux/windows).\\n' +\n        '— Example validator: { \"os\": \"mac\", \"type\": \"command\", \"params\": { \"command\": \"code --version\" } }\\n\\n' +\n        'CONTENT RULES:\\n' +\n        '- Be deterministic and specific. No placeholders like \"<PROJECT_NAME>\".\\n' +\n        '- Use realistic commands and checks aligned with each step.\\n' +\n        '- Prefer safe, read-only validators (version checks, dry-runs, existence checks).\\n' +\n        '- Map fields to the step logically (e.g., IDE select/options in Step 1; repo URL/branch/auth in Step 2; package manager/node version in Step 3; env file and start command in Step 4).\\n' +\n        '- Example select options to consider when relevant: OS = [\"macOS\",\"Linux\",\"Windows\"], IDE = [\"VSCode\",\"Cursor\",\"IntelliJ\",\"Vim\"], Theme = [\"Dark\",\"Light\",\"Auto\"], Package Manager = [\"npm\",\"pnpm\",\"yarn\",\"bun\"], Node Version = [\"LTS\",\"Latest\"], Start Mode = [\"dev\",\"staging\",\"production\"].\\n\\n' +\n        'INPUT MARKDOWN SUMMARY (may be empty):\\n\\n' +\n        String($json.summary_markdown || $node[\"Extract Summary Markdown1\"].json.summary_markdown || '').slice(0, 12000)\n    }\n  ]\n}) }}\n",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "42378294-a443-41f3-b63f-449e5182f454",
+      "name": "OpenAI Parts (Attempt 1)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -3264,
+        576
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "jnju2D2ZbdtG7a6i",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.statusCode}}",
+              "value2": 300
+            }
+          ]
+        }
+      },
+      "id": "45916be2-b32e-40ad-96bf-d28e3c38123a",
+      "name": "IF: Parts < 300 ?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2960,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "953fd75b-f8af-48f1-a6cb-9de77b227439",
+      "name": "Respond ",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -1584,
+        576
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:8000/api/v1/repos/scans/{{$json.scan_id}}/error",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"scan_id\": $json.scan_id,\n  \"repo_id\": $json.repo_id,\n  \"error_message\": $json.error_message\n}\n",
+        "options": {}
+      },
+      "id": "2b2ad761-ddb4-4c61-9999-db73b7e84999",
+      "name": "POST Back: Error (/scans/:id/error)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -2288,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "770f5fbf-c27a-4d8a-927f-a81f8a27a8e3",
+      "name": "Respond 501",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -2064,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "14fb66de-3cf7-4aa1-84bd-2dd9a858fea5",
+              "name": "summary_markdown",
+              "value": "={{ JSON.stringify(String(($json.body?.choices?.[0]?.message?.content ?? $json.choices?.[0]?.message?.content) || '')) }}\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3600,
+        576
+      ],
+      "id": "cb431554-3410-4a43-92ad-0ceaf45e9680",
+      "name": "Extract Summary Markdown1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "/**\n * Expects the current item to carry:\n *  - OpenAI Responses API result (array with one response object, or the object itself; possibly under .body)\n *  - repo_id (merged earlier)\n */\n\nconst repo_id = $json.repo_id;\n\n// ---------- helpers ----------\nconst A = (v, d = []) => (Array.isArray(v) ? v : d);\nconst S = (v, d = '') => (typeof v === 'string' ? v : d);\nconst B = (v, d = false) => (typeof v === 'boolean' ? v : d);\n\nconst REQUIRED_TITLES = [\n  'IDE Setup & Extensions',\n  'Clone Repository',\n  'Install Dependencies',\n  'First Run & Documentation Access',\n];\n\nconst FIELD_TYPES = new Set(['select', 'text', 'password', 'number', 'checkbox', 'textarea', 'url', 'email']);\n\n// Extract the assistant text from /v1/responses shapes\nfunction extractAssistantText(payload) {\n  // Accept: [response], response, { body: response }, or { body: [response] }\n  const root = Array.isArray(payload) ? payload[0] : payload;\n  const body = root?.body ?? root;\n\n  // Fast path: some SDKs return `text` directly\n  if (typeof body?.output_text === 'string') return body.output_text;\n\n  // Standard path: body.output[] → type === \"message\" → content[] → type === \"output_text\" → .text\n  const out = A(body?.output);\n  for (const chunk of out) {\n    if (chunk?.type === 'message' && Array.isArray(chunk?.content)) {\n      for (const c of chunk.content) {\n        if (c?.type === 'output_text' && typeof c?.text === 'string') {\n          return c.text;\n        }\n      }\n    }\n  }\n\n  // Legacy chat fallback (very unlikely here, but harmless)\n  if (typeof body?.choices?.[0]?.message?.content === 'string') {\n    return body.choices[0].message.content;\n  }\n\n  return null;\n}\n\n// Coerce a field object to the strict schema the prompt defined\nfunction normalizeField(f) {\n  const id = S(f?.id);\n  const type = S(f?.type, 'text');\n  const label = S(f?.label);\n  const required = B(f?.required, false);\n  let options = f?.options;\n\n  // Enforce allowed types\n  const finalType = FIELD_TYPES.has(type) ? type : 'text';\n\n  // Only keep `options` for select; drop otherwise\n  if (finalType === 'select') {\n    options = A(options).filter((x) => typeof x === 'string' && x.trim().length > 0);\n    if (options.length === 0) {\n      delete options; // avoid empty arrays\n    }\n  } else {\n    options = undefined;\n  }\n\n  const field = { id, type: finalType, label, required };\n  if (options) field.options = options;\n\n  // Validate required keys\n  if (!id || !label) return null;\n  return field;\n}\n\n// ---------- main ----------\nconst obj = Array.isArray($json) ? $json[0] : $json;\nconst content = extractAssistantText(obj);\n\nif (!content) {\n  const sample = JSON.stringify(obj).slice(0, 800);\n  throw new Error(`No assistant content found for parts. sample=${sample}`);\n}\n\nlet parts;\ntry {\n  parts = JSON.parse(content);\n} catch (e) {\n  throw new Error(`Parts JSON parse error: ${String(e)} | content sample: ${content.slice(0, 400)}`);\n}\n\nif (!Array.isArray(parts) || parts.length !== 4) {\n  throw new Error(\n    `Expected array of 4 template parts, got ${Array.isArray(parts) ? parts.length : typeof parts}`\n  );\n}\n\n// Normalize & enforce deterministic titles/order\nconst template_parts = parts.map((p, i) => {\n  const title = REQUIRED_TITLES[i];\n  const description = S(p?.description);\n  const role_key = 'dev';\n  const tags = A(p?.tags).filter((t) => typeof t === 'string' && t.trim().length > 0);\n\n  // fields: keep the new schema (id/type/label/options?/required), coerce and backfill if empty\n  let fields = A(p?.fields).map(normalizeField).filter(Boolean);\n\n  if (fields.length === 0) {\n    if (i === 0) {\n      fields.push({ id: 'f_ide', type: 'select', label: 'Preferred IDE', required: true, options: ['VSCode','Cursor','IntelliJ','Vim'] });\n    }\n    if (i === 1) {\n      fields.push({ id: 'f_git_clone_ok', type: 'checkbox', label: 'Repository successfully cloned?', required: false });\n    }\n    if (i === 2) {\n      fields.push({ id: 'f_install_cmd', type: 'text', label: 'Install command', required: true });\n    }\n    if (i === 3) {\n      fields.push({ id: 'f_start_cmd', type: 'text', label: 'Start command', required: true });\n    }\n  }\n\n  // validators: pass through but ensure array\n  const validators = A(p?.validators);\n\n  return { title, description, role_key, tags, fields, validators };\n});\n\nreturn { json: { repo_id, template_parts } };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2576,
+        576
+      ],
+      "id": "85e2605f-2223-462d-84a3-3a0df5248e30",
+      "name": "Parse template parts1"
+    },
+    {
+      "parameters": {
+        "jsCode": "/**\n * Builds a backend-friendly error payload for parts generation failures.\n * It pulls scan/repo context from \"Set: Context Vars\" and inspects the current\n * item to compose a short error_message.\n */\n\nconst ctx = $items('Set: Context Vars', 0, 0)?.json || {};\nconst cur = $json;\n\nlet error_message = 'Unknown parts generation error';\n\n// Case 1: HTTP error from OpenAI parts call\nif (typeof cur.statusCode === 'number') {\n  const bodyStr = (() => {\n    try { return JSON.stringify(cur.body).slice(0, 800); }\n    catch { return String(cur.body).slice(0, 800); }\n  })();\n  error_message = `Parts HTTP failed: status=${cur.statusCode}; body=${bodyStr}`;\n}\n\n// Case 2: Upstream parser passed a parse_error + raw content\nif (cur.parse_error) {\n  const rawContent = String(cur.raw?.body?.choices?.[0]?.message?.content || '')\n    .replace(/\\s+/g, ' ')\n    .slice(0, 800);\n  error_message = `Parts JSON parse error: ${cur.parse_error}; content=\"${rawContent}\"`;\n}\n\n// Case 3: Pre-baked message\nif (cur.error_message && typeof cur.error_message === 'string') {\n  error_message = cur.error_message;\n}\n\nreturn [{\n  scan_id: ctx.scan_id,\n  repo_id: ctx.repo_id,\n  error_message\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2528,
+        784
+      ],
+      "id": "852307b4-4750-4426-b304-ce99229691b2",
+      "name": "Build Error: Parts1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $items('Webhook: Repo Scan Trigger1', 0, 0)?.json || {};\nconst cur = $json;\nreturn [{\n  scan_id: src.scan_id,\n  repo_id: src.repo_id,\n  error_message: `Clone failed (exitCode=${cur.exitCode ?? 'n/a'}). stderr=${String(cur.stderr||'').slice(0,500)}`\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3904,
+        896
+      ],
+      "id": "295961ec-741e-4ab1-adf4-6e6a8152b0e8",
+      "name": "Build Error: Clone1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Webhook outputs { body, headers, query, params, ... }\n// We want the payload fields at top-level for the rest of the flow.\nconst p = $json.body ?? $json;\n\n// where to put the repo (change base if you prefer /data)\nconst base = '/tmp';\nconst repo_dir = `${base}/repo_${p.scan_id}`;\n\n// Return ONE item (your n8n build expects single-object return)\nreturn { json: { ...p, repo_dir } };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -5008,
+        784
+      ],
+      "id": "fc95953f-1128-4a00-b416-d5890890c5e5",
+      "name": "Context vars1"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const SAFE_TYPES = new Set(['text','textarea','checkbox','number','url','command','select']);\nconst S = (v, d='') => (typeof v === 'string' ? v : d);\nconst A = (v) => (Array.isArray(v) ? v : []);\n\nconst ROOT = Array.isArray($json) ? $json[0] : $json;\nconst INPUT_PARTS = A(ROOT?.template_parts);\n\nconst TITLES = ['IDE Setup & Extensions','Clone Repository','Install Dependencies','First Run & Documentation Access'];\n\nconst cleaned_parts = INPUT_PARTS.map((p, idx) => {\n  const title = S(p?.title) || TITLES[idx] || `Step ${idx+1}`;\n  const description = S(p?.description);\n  const role_key = 'dev';\n  const tags = A(p?.tags).map(S).filter(Boolean);\n\n  const fields = A(p?.fields).map(f => {\n    const name = S(f?.id) || S(f?.name);\n    const label = S(f?.label) || name;\n    let type = S(f?.type, 'text').toLowerCase();\n    if (!SAFE_TYPES.has(type)) type = 'text';\n\n    // preserve options ONLY for select\n    let field = { name, label, type };\n    if (type === 'select') {\n      const options = A(f?.options).map(S).filter(Boolean);\n      if (options.length > 0) field.options = options;\n    }\n    return (name && label) ? field : null;\n  }).filter(Boolean);\n\n  const validators = A(p?.validators).filter(v => v && typeof v === 'object');\n\n  return { title, description, role_key, tags, fields, validators };\n});\n\nreturn { json: { template_parts: cleaned_parts } };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2384,
+        576
+      ],
+      "id": "699d89c9-7665-424e-afab-fe1a1880dbb7",
+      "name": "Coerce scan result payload1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://0.0.0.0:8000/api/v1/repos/scanresult",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  scan_id: $json.scan_id,\n  summary_markdown: String($json.summary_markdown || ''),\n  template_parts: Array.isArray($json.template_parts) ? $json.template_parts : []\n}) }}",
+        "options": {}
+      },
+      "id": "7edcab74-a3b6-457a-9a8f-cbdd5793d5fa",
+      "name": "POST Back: Success (/scanresult)1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -1680,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "34a625ba-55a1-4efa-9231-ba7c57def228",
+              "name": "scan_id",
+              "value": "={{ String($json.scan_id)\n     .replace(/^\"+|\"+$/g, '')      // remove accidental wrapping quotes\n     .replace(/\\\\r?\\\\n+$/g, '')    // drop trailing \\n or \\r\\n (literal)\n     .trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -4672,
+        560
+      ],
+      "id": "f17d8009-2a34-440f-ae10-4534a0806dd4",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -2080,
+        288
+      ],
+      "id": "9ccab71d-42e6-4d9d-8999-1f97c68fb8db",
+      "name": "Merge1"
     }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook: Repo Scan Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Context vars1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clone Repo (shallow)1": {
+      "main": [
+        [
+          {
+            "node": "IF: Clone OK?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Clone OK?1": {
+      "main": [
+        [
+          {
+            "node": "Extract Repo Info1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error: Clone1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Repo Info1": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Summarize (Attempt 1)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Summarize (Attempt 1)1": {
+      "main": [
+        [
+          {
+            "node": "Extract Summary Markdown1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Parts (Attempt 1)1": {
+      "main": [
+        [
+          {
+            "node": "IF: Parts < 300 ?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF: Parts < 300 ?1": {
+      "main": [
+        [
+          {
+            "node": "Parse template parts1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Error: Parts1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Back: Error (/scans/:id/error)1": {
+      "main": [
+        [
+          {
+            "node": "Respond 501",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Summary Markdown1": {
+      "main": [
+        [
+          {
+            "node": "OpenAI Parts (Attempt 1)1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Parse template parts1": {
+      "main": [
+        [
+          {
+            "node": "Coerce scan result payload1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error: Parts1": {
+      "main": [
+        [
+          {
+            "node": "POST Back: Error (/scans/:id/error)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Error: Clone1": {
+      "main": [
+        [
+          {
+            "node": "POST Back: Error (/scans/:id/error)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Context vars1": {
+      "main": [
+        [
+          {
+            "node": "Clone Repo (shallow)1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coerce scan result payload1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "POST Back: Success (/scanresult)1": {
+      "main": [
+        [
+          {
+            "node": "Respond ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "POST Back: Success (/scanresult)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3ccda8ed-4a5b-43d1-b521-bd061d54871e",
+  "meta": {
+    "instanceId": "f2d2bc448a82ae9c2c15dfd627ed7fde7e2c339f1e1c3c367038c178f34c8421"
+  },
+  "id": "kLThaCEjOfze6iRs",
+  "tags": []
 }

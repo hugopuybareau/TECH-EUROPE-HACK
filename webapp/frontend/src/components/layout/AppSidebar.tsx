@@ -1,7 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Home,
-  Cable,
   FolderGit2,
   Blocks,
   ListChecks,
@@ -22,7 +21,6 @@ import {
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
-  { title: "Integrations", url: "/integrations", icon: Cable },
   { title: "Repositories", url: "/repositories", icon: FolderGit2 },
   { title: "Template Parts", url: "/template-parts", icon: Blocks },
   { title: "Templates", url: "/templates", icon: ListChecks },

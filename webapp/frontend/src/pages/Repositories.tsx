@@ -17,7 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Play, Eye, Loader2 } from "lucide-react";
+import { Plus, Play, Eye, Loader2, Github, Gitlab } from "lucide-react";
 import { format } from "date-fns";
 import { api } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
@@ -231,7 +231,15 @@ export default function Repositories() {
                 <TableBody>
                   {repos.map((repo) => (
                     <TableRow key={repo.id}>
-                      <TableCell className="font-medium capitalize">{repo.provider}</TableCell>
+                      <TableCell className="font-medium">
+                        {repo.provider === "github" ? (
+                          <Github className="h-5 w-5" />
+                        ) : repo.provider === "gitlab" ? (
+                          <Gitlab className="h-5 w-5" />
+                        ) : (
+                          <span className="capitalize">{repo.provider}</span>
+                        )}
+                      </TableCell>
                       <TableCell>{repo.org}/{repo.name}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{repo.default_branch}</Badge>
@@ -296,7 +304,21 @@ export default function Repositories() {
             <div className="mt-6 space-y-4">
               <div>
                 <Label className="text-sm font-semibold">Provider</Label>
-                <p className="text-sm text-muted-foreground capitalize">{selectedRepo.provider}</p>
+                <div className="text-sm text-muted-foreground flex items-center gap-2">
+                  {selectedRepo.provider === "github" ? (
+                    <>
+                      <Github className="h-4 w-4" />
+                      <span>GitHub</span>
+                    </>
+                  ) : selectedRepo.provider === "gitlab" ? (
+                    <>
+                      <Gitlab className="h-4 w-4" />
+                      <span>GitLab</span>
+                    </>
+                  ) : (
+                    <span className="capitalize">{selectedRepo.provider}</span>
+                  )}
+                </div>
               </div>
               <div>
                 <Label className="text-sm font-semibold">Organization</Label>
@@ -340,8 +362,18 @@ export default function Repositories() {
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="github">GitHub</SelectItem>
-                  <SelectItem value="gitlab">GitLab</SelectItem>
+                  <SelectItem value="github">
+                    <div className="flex items-center gap-2">
+                      <Github className="h-4 w-4" />
+                      <span>GitHub</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="gitlab">
+                    <div className="flex items-center gap-2">
+                      <Gitlab className="h-4 w-4" />
+                      <span>GitLab</span>
+                    </div>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
