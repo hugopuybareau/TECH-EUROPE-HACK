@@ -1,4 +1,4 @@
-export type Role = "intern" | "manager" | "cto";
+export type Role = "intern" | "manager" | "cto" | "dev";
 
 export type FieldType = "text" | "textarea" | "select" | "secret";
 

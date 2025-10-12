@@ -25,7 +25,7 @@ type ApiTemplate = {
   id: string;
   company_id: string;
   name: string;
-  role_key: "intern" | "manager" | "cto";
+  role_key: "intern" | "manager" | "cto" | "dev";
   part_ids: string[];
   status: "draft" | "published";
   version: number;

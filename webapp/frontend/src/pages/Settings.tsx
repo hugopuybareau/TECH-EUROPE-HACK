@@ -39,6 +39,7 @@ export default function Settings() {
                   <option>Intern</option>
                   <option>Manager</option>
                   <option>CTO</option>
+                  <option>Dev</option>
                 </select>
               </div>
               <Button>Save Changes</Button>
