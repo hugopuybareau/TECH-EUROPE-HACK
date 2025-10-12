@@ -46,6 +46,7 @@ export default function Repositories() {
   const [selectedRepo, setSelectedRepo] = useState<RepoResponse | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [scanningRepos, setScanningRepos] = useState<Map<string, string>>(new Map());
+  const [completedScans, setCompletedScans] = useState<Set<string>>(new Set());
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const queryClient = useQueryClient();
 
@@ -114,11 +115,27 @@ export default function Repositories() {
           const scan = await api.get<ScanResponse>(`/api/v1/repos/${repoId}/scans/${scanId}`);
 
           if (scan.status === "done") {
-            toast.success("Scan complete!", {
-              description: "New template parts have been generated from the repository scan.",
+            // Find repo name for the toast
+            const repo = repos.find(r => r.id === repoId);
+            const repoName = repo ? `${repo.org}/${repo.name}` : "Repository";
+
+            toast.success("🎉 Scan Complete!", {
+              description: `${repoName} has been successfully scanned! New template parts have been generated and are ready to use.`,
+              duration: 5000,
             });
+
             updatedScans.delete(repoId);
+            setCompletedScans(prev => new Set(prev).add(repoId));
             hasChanges = true;
+
+            // Clear completed state after 3 seconds
+            setTimeout(() => {
+              setCompletedScans(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(repoId);
+                return newSet;
+              });
+            }, 3000);
 
             // Optionally refresh repos list
             queryClient.invalidateQueries({ queryKey: ["repos"] });
@@ -144,7 +161,7 @@ export default function Repositories() {
         clearInterval(pollIntervalRef.current);
       }
     };
-  }, [scanningRepos, queryClient]);
+  }, [scanningRepos, queryClient, repos]);
 
   const handleScan = (repoId: string) => {
     scanMutation.mutate({ repoId });
@@ -161,6 +178,7 @@ export default function Repositories() {
   };
 
   const isScanning = (repoId: string) => scanningRepos.has(repoId);
+  const isCompleted = (repoId: string) => completedScans.has(repoId);
 
   return (
     <AppShell title="Repositories">
@@ -223,14 +241,25 @@ export default function Repositories() {
                         <div className="flex justify-end gap-2">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant={isCompleted(repo.id) ? "default" : "outline"}
                             onClick={() => handleScan(repo.id)}
                             disabled={isScanning(repo.id)}
+                            className={
+                              isScanning(repo.id)
+                                ? "bg-orange-500 text-white hover:bg-orange-600 border-orange-500"
+                                : isCompleted(repo.id)
+                                ? "bg-green-500 text-white hover:bg-green-600"
+                                : ""
+                            }
                           >
                             {isScanning(repo.id) ? (
                               <>
                                 <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                                 Scanning...
+                              </>
+                            ) : isCompleted(repo.id) ? (
+                              <>
+                                ✓ Completed
                               </>
                             ) : (
                               <>

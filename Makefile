@@ -21,6 +21,6 @@ frontend-up frontend.up:
 # Uses local venv's uvicorn if available, otherwise falls back to system uvicorn
 backend-up backend.up:
 	cd webapp/backend && ( \
-		[ -x .venv/bin/uvicorn ] && .venv/bin/uvicorn app.main:app --reload --port 8000 \
-		|| uvicorn app.main:app --reload --port 8000 \
+		[ -x .venv/bin/uvicorn ] && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload \
+		|| uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload \
 	)

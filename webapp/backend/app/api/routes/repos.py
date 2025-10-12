@@ -168,7 +168,7 @@ async def get_scan(
     return success_response(response.dict())
 
 
-@router.post("/scan-result")
+@router.post("/scanresult")
 async def receive_scan_result(
     payload: ScanResultPayload,
     db: AsyncSession = Depends(get_db)
@@ -213,3 +213,4 @@ async def receive_scan_result(
         "status": scan.status.value,
         "created_parts": [str(part.id) for part in created_parts]
     })
+
