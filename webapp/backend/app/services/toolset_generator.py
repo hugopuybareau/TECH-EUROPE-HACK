@@ -37,18 +37,49 @@ async def _call_openai(
     endpoint = f"{base_url}/chat/completions"
     print(questionnaire_answers)
     print(serialized_parts)
+
+    # Build a mapping of answers to template part fields
     result = []
+
+    # Create a list of (field_index, answer_value) from questionnaire_answers
+    # The keys are like "field_0", "field_1", etc.
+    indexed_answers = []
+    for key, value in questionnaire_answers.items():
+        if key.startswith("field_"):
+            try:
+                index = int(key.split("_")[1])
+                indexed_answers.append((index, value))
+            except (IndexError, ValueError):
+                continue
+
+    # Sort by index to match the order of fields across all template parts
+    indexed_answers.sort(key=lambda x: x[0])
+
+    # Flatten all fields from all parts to match against indexed answers
+    all_fields = []
     for part in serialized_parts:
         for field in part.get("fields", []):
-            fid = field.get("id")
-            if fid in questionnaire_answers:
-                item = {
-                    "part_id": part.get("id"),
-                    "part_title": part.get("title"),
-                    **{k: v for k, v in field.items() if k != "options"},
-                    "chosen_value": questionnaire_answers[fid],
-                }
-                result.append(item)
+            all_fields.append({
+                "part_id": part.get("id"),
+                "part_title": part.get("title"),
+                "field": field
+            })
+
+    # Match answers to fields by index
+    for idx, (answer_idx, answer_value) in enumerate(indexed_answers):
+        if answer_idx < len(all_fields):
+            field_info = all_fields[answer_idx]
+            field = field_info["field"]
+            item = {
+                "part_id": field_info["part_id"],
+                "part_title": field_info["part_title"],
+                "field_name": field.get("name"),
+                "field_label": field.get("label"),
+                "field_type": field.get("type"),
+                "chosen_value": answer_value,
+            }
+            result.append(item)
+
     print(result)
 
     messages = [
