@@ -20,9 +20,21 @@ async def notify_n8n(scan_id: UUID, repo_id: UUID, repo: Repo):
     """
     Notify n8n webhook to start repo scanning workflow
     """
-    if not settings.N8N_WEBHOOK_URL:
-        # If no webhook URL configured, skip notification
+    print(f"[N8N] Starting notification for scan_id={scan_id}, repo_id={repo_id}")
+    print(f"[N8N] N8N_WEBHOOK_URL configured: {bool(settings.N8N_WEBHOOK_URL)}")
+
+    if not settings.N8N_WEBHOOK_URL or settings.N8N_WEBHOOK_URL == "read-it-from-env":
+        print("[N8N] WARNING: N8N_WEBHOOK_URL not configured! Skipping n8n notification.")
+        print("[N8N] Please set N8N_WEBHOOK_URL in your .env file")
         return
+
+    # Construct repo URL based on provider
+    if repo.provider.value == "github":
+        repo_url = f"https://github.com/{repo.org}/{repo.name}.git"
+    elif repo.provider.value == "gitlab":
+        repo_url = f"https://gitlab.com/{repo.org}/{repo.name}.git"
+    else:
+        repo_url = f"https://{repo.provider.value}.com/{repo.org}/{repo.name}.git"
 
     payload = {
         "scan_id": str(scan_id),
@@ -30,15 +42,30 @@ async def notify_n8n(scan_id: UUID, repo_id: UUID, repo: Repo):
         "provider": repo.provider.value,
         "org": repo.org,
         "name": repo.name,
-        "default_branch": repo.default_branch
+        "default_branch": repo.default_branch,
+        "repo_url": repo_url
     }
+
+    print(f"[N8N] Webhook URL: {settings.N8N_WEBHOOK_URL}")
+    print(f"[N8N] Payload: {payload}")
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(settings.N8N_WEBHOOK_URL, json=payload)
+            print("[N8N] Sending POST request to n8n...")
+            response = await client.post(settings.N8N_WEBHOOK_URL, json=payload)
+            print(f"[N8N] Response status: {response.status_code}")
+            print(f"[N8N] Response body: {response.text[:500]}")  # First 500 chars
+
+            if response.status_code >= 400:
+                print(f"[N8N] ERROR: n8n webhook returned error status {response.status_code}")
+            else:
+                print("[N8N] SUCCESS: n8n webhook triggered successfully")
+    except httpx.TimeoutException:
+        print("[N8N] ERROR: Request to n8n timed out after 10 seconds")
+    except httpx.ConnectError as e:
+        print(f"[N8N] ERROR: Could not connect to n8n webhook: {e}")
     except Exception as e:
-        # Log but don't fail - the scan record is already created
-        print(f"Failed to notify n8n: {e}")
+        print(f"[N8N] ERROR: Failed to notify n8n: {type(e).__name__}: {e}")
 
 
 @router.post("/")

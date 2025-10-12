@@ -1,0 +1,91 @@
+{
+  "name": "Repo Scan → Minimal Deterministic Template Parts",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "repo-scan/start",
+        "method": "POST",
+        "responseMode": "onReceived",
+        "options": {
+          "responseData": "{\"status\":\"accepted\"}",
+          "responseCode": 202
+        }
+      },
+      "id": "Webhook_Start",
+      "name": "Webhook • Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [180, 320]
+    },
+    {
+      "parameters": {
+        "mode": "keepKeyMatches",
+        "values": {
+          "string": [
+            { "name": "scan_id", "value": "={{$json[\"body\"][\"scan_id\"]}}" },
+            { "name": "repo_url", "value": "={{$json[\"body\"][\"repo_url\"]}}" },
+            { "name": "backend_callback_url", "value": "={{$json[\"body\"][\"backend_callback_url\"]}}" }
+          ]
+        }
+      },
+      "id": "Set_Vars",
+      "name": "Set • Vars (minimal)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [420, 320]
+    },
+    {
+      "parameters": {
+        "command": "set -euo pipefail\nWORKDIR=\"/tmp/scan_{{$json.scan_id}}\"\nrm -rf \"$WORKDIR\" && mkdir -p \"$WORKDIR\"\nREPO_URL=\"{{$json.repo_url}}\"\nGIT_LFS_SKIP_SMUDGE=1 git clone --depth=1 \"$REPO_URL\" \"$WORKDIR\" >/dev/null 2>&1 || {\n  echo '{\"clone_error\":true, \"workdir\":\"'\"$WORKDIR\"'\"}'\n  exit 0\n}\ncd \"$WORKDIR\"\necho '{\"workdir\":\"'\"$WORKDIR\"'\"}'"
+      },
+      "id": "Exec_Clone",
+      "name": "Exec • Clone (shallow)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [660, 320]
+    },
+    {
+      "parameters": {
+        "functionCode": "const fs = require('fs');\nconst path = require('path');\n\n// Handle failed clone gracefully\nconst cloneOut = $node[\"Exec • Clone (shallow)\"].json;\nif (cloneOut.clone_error) {\n  return [{ json: { error: 'clone_failed', workdir: cloneOut.workdir, summary_markdown: '# Repository Summary\\nClone failed. Check repo URL.', template_parts: [] } }];\n}\n\nconst workdir = JSON.parse($node[\"Exec • Clone (shallow)\"].json[\"stdout\"]).workdir;\nconst root = workdir;\n\nfunction exists(p){ try { fs.accessSync(p); return true; } catch { return false; } }\nfunction readJson(p){ try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; } }\nfunction readText(p, limit=20000){ try { const s = fs.readFileSync(p, 'utf8'); return s.slice(0, limit); } catch { return ''; } }\n\nconst files = {\n  pkg: path.join(root,'package.json'),\n  req: path.join(root,'requirements.txt'),\n  pyproj: path.join(root,'pyproject.toml'),\n  readme: [path.join(root,'README.md'), path.join(root,'README'), path.join(root,'readme.md')],\n  vscodeExt: path.join(root,'.vscode','extensions.json')\n};\n\nlet stack = { lang: 'unknown', pm: 'unknown', framework: null };\nlet install = null;\nlet run = null;\nlet docs = null;\nlet ide = { vscode: false, extensions: [] };\n\n// Node detection\nif (exists(files.pkg)){\n  stack.lang = 'node';\n  const pkg = readJson(files.pkg) || {};\n  // pick pm by lock files in root\n  if (exists(path.join(root,'pnpm-lock.yaml'))) stack.pm = 'pnpm';\n  else if (exists(path.join(root,'yarn.lock'))) stack.pm = 'yarn';\n  else stack.pm = 'npm';\n  install = `${stack.pm} install`;\n  if (pkg.scripts){\n    if (pkg.scripts.dev) run = `${stack.pm === 'pnpm' ? 'pnpm' : (stack.pm === 'yarn' ? 'yarn' : 'npm run')} dev`;\n    else if (pkg.scripts.start) run = `${stack.pm === 'pnpm' ? 'pnpm' : (stack.pm === 'yarn' ? 'yarn' : 'npm run')} start`;\n  }\n  const deps = Object.assign({}, pkg.dependencies, pkg.devDependencies);\n  if (deps){\n    if (deps.next) stack.framework = 'Next.js';\n    else if (deps.vite) stack.framework = 'Vite';\n    else if (deps.react) stack.framework = 'React';\n  }\n}\n\n// Python detection (only if not Node)\nif (stack.lang === 'unknown' && (exists(files.req) || exists(files.pyproj))){\n  stack.lang = 'python';\n  if (exists(files.pyproj)) {\n    // very simple heuristic: assume pip for hackathon\n    stack.pm = 'pip';\n    install = exists(files.req) ? 'pip install -r requirements.txt' : 'pip install -e .';\n  } else {\n    stack.pm = 'pip';\n    install = 'pip install -r requirements.txt';\n  }\n  run = 'uvicorn app.main:app --reload';\n  docs = 'Visit /docs';\n}\n\n// IDE hints\nif (exists(files.vscodeExt)){\n  ide.vscode = true;\n  const ex = readJson(files.vscodeExt);\n  const recs = ex && (ex.recommendations || ex['recommendations']);\n  ide.extensions = Array.isArray(recs) ? recs.slice(0, 20) : [];\n}\n\n// README-based docs fallback (very simple)\nif (!docs) {\n  const rd = files.readme.find(exists);\n  const txt = rd ? readText(rd, 40000) : '';\n  if (/\\/(docs)/i.test(txt)) docs = 'Visit /docs';\n}\n\nconst lines = [];\nlines.push('# Repository Summary');\nlines.push(`Language: ${stack.lang}`);\nlines.push(`Package Manager: ${stack.pm}`);\nif (stack.framework) lines.push(`Framework: ${stack.framework}`);\nlines.push('');\nlines.push('## Suggested Commands');\nlines.push(`Install: ${install || 'N/A'}`);\nlines.push(`Run: ${run || 'N/A'}`);\nlines.push(`Docs: ${docs || 'Check README'}`);\nconst summary_markdown = lines.join('\\n');\n\nconst repoUrl = $json.repo_url || '';\nconst repoName = (repoUrl.split('/').pop() || 'repo').replace(/\\.git$/,'');\n\nconst parts = [\n  {\n    title: 'IDE setup + extensions',\n    role_key: 'DEV',\n    tags: ['auto-generated','repo-scan'],\n    description: ide.vscode ? `Use VSCode. Recommended extensions: ${ide.extensions.join(', ')}` : 'Use VSCode (install basic language extensions).',\n    fields: { ide: 'vscode', extensions: ide.extensions },\n    validators: {}\n  },\n  {\n    title: 'Cloning a repo',\n    role_key: 'DEV',\n    tags: ['auto-generated','repo-scan'],\n    description: `git clone ${repoUrl} && cd ${repoName}`,\n    fields: { repo_url: repoUrl, repo_name: repoName },\n    validators: {}\n  },\n  {\n    title: 'Installing dependencies',\n    role_key: 'DEV',\n    tags: ['auto-generated','repo-scan'],\n    description: install || 'See README for install instructions',\n    fields: { command: install || '' },\n    validators: {}\n  },\n  {\n    title: 'First run',\n    role_key: 'DEV',\n    tags: ['auto-generated','repo-scan'],\n    description: (run || 'See README for run instructions') + (docs ? ' — ' + docs : ''),\n    fields: { command: run || '', docs: docs || '' },\n    validators: {}\n  }\n];\n\nreturn [{ json: { scan_id: $json.scan_id, repo_url: repoUrl, summary_markdown, template_parts: parts } }];"
+      },
+      "id": "Analyze_Min",
+      "name": "Function • Analyze (minimal deterministic)",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [920, 320]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "={{$json.backend_callback_url}}",
+        "jsonParameters": true,
+        "bodyParametersJson": "={\n  \"scan_id\": $json.scan_id,\n  \"summary_markdown\": $json.summary_markdown,\n  \"template_parts\": $json.template_parts\n}"
+      },
+      "id": "HTTP_Callback",
+      "name": "HTTP • Send results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1180, 320]
+    },
+    {
+      "parameters": {
+        "command": "set -eu\nWORKDIR=\"/tmp/scan_{{$json.scan_id}}\"\nrm -rf \"$WORKDIR\" || true\necho '{\"cleanup\":true}'"
+      },
+      "id": "Exec_Cleanup",
+      "name": "Exec • Cleanup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1420, 320]
+    }
+  ],
+  "connections": {
+    "Webhook • Start": { "main": [[{ "node": "Set • Vars (minimal)", "type": "main", "index": 0 }]] },
+    "Set • Vars (minimal)": { "main": [[{ "node": "Exec • Clone (shallow)", "type": "main", "index": 0 }]] },
+    "Exec • Clone (shallow)": { "main": [[{ "node": "Function • Analyze (minimal deterministic)", "type": "main", "index": 0 }]] },
+    "Function • Analyze (minimal deterministic)": { "main": [[{ "node": "HTTP • Send results", "type": "main", "index": 0 }]] },
+    "HTTP • Send results": { "main": [[{ "node": "Exec • Cleanup", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {},
+  "id": "silveragents_repo_scan_minimal_v1"
+}
