@@ -1,6 +1,5 @@
-import { Search, Bell, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,10 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 
 export function TopNav() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const getInitials = (name: string) => {
     return name
@@ -46,20 +46,9 @@ export function TopNav() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="flex-1 flex items-center justify-center max-w-2xl mx-auto">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search... (⌘K)"
-              className="pl-10 bg-muted border-0"
-            />
-          </div>
-        </div>
+        {/* Search bar removed */}
 
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Bell className="h-5 w-5" />
-          </Button>
+        <div className="ml-auto flex items-center gap-2">
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -74,12 +63,9 @@ export function TopNav() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={logout}>Log out</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">Settings</Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
