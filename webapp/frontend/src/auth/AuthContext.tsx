@@ -8,6 +8,7 @@ interface User {
   name: string;
   role: string;
   company_id: string;
+  working_repo_id?: string | null;
 }
 
 interface AuthContextType {
@@ -17,6 +18,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   loading: boolean;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +36,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           const userData = await api.get<User>("/api/v1/auth/me");
           setUser(userData);
+          localStorage.setItem("auth_user", JSON.stringify(userData));
           setTokenState(storedToken);
         } catch (error) {
           clearToken();
@@ -65,6 +68,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     navigate("/login");
   };
 
+  const refreshUser = async () => {
+    const userData = await api.get<User>("/api/v1/auth/me");
+    setUser(userData);
+    localStorage.setItem("auth_user", JSON.stringify(userData));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -74,6 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         loading,
+        refreshUser,
       }}
     >
       {children}

@@ -11,17 +11,21 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 export function TopNav() {
   const { user } = useAuth();
+  const { data: company } = useQuery<{ id: string; name: string } | null>({
+    queryKey: ["company", "current"],
+    queryFn: () => api.get("/api/v1/companies/current"),
+  });
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+  const emojiChoices = ["🙂", "😎", "🦊", "🐼", "🧠", "🚀", "🌟", "🍀", "🦄", "🐙"];
+  const pickEmoji = (seed: string) => {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    return emojiChoices[hash % emojiChoices.length];
   };
 
   return (
@@ -34,7 +38,7 @@ export function TopNav() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2">
-              Company Name
+              {company?.name || "Company"}
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
@@ -55,7 +59,7 @@ export function TopNav() {
               <Button variant="ghost" className="gap-2 pl-2">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {user ? getInitials(user.name) : "AU"}
+                    {user ? pickEmoji(user.id) : "🙂"}
                   </AvatarFallback>
                 </Avatar>
                 <span className="text-sm">{user?.name || "Admin User"}</span>

@@ -20,4 +20,5 @@ class User(Base):
     name = Column(String, nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.DEV)
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id"), nullable=False)
+    working_repo_id = Column(UUID(as_uuid=True), ForeignKey("repos.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

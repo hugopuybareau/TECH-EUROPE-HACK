@@ -15,6 +15,7 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
+    working_repo_id: Optional[UUID] = None
 
 
 class UserResponse(BaseModel):
@@ -24,6 +25,7 @@ class UserResponse(BaseModel):
     role: str
     company_id: UUID
     created_at: datetime
+    working_repo_id: Optional[UUID] = None
     
     class Config:
         from_attributes = True
