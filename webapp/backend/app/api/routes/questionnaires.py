@@ -90,7 +90,9 @@ async def update_answers(
     # Merge answers
     if not questionnaire.answers:
         questionnaire.answers = {}
-    questionnaire.answers.update(update.answers)
+    print("Current answers:", questionnaire.answers)
+    questionnaire.answers = questionnaire.answers | update.answers
+    print("After answers:", questionnaire.answers)
     
     await db.commit()
     await db.refresh(questionnaire)

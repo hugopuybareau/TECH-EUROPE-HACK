@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-import uuid
+
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.questionnaire import Questionnaire, ToolSet
+from app.models.template import OnboardingTemplate, TemplatePart
 from app.models.user import User
+from app.schemas.common import error_response, success_response
 from app.schemas.questionnaire import ToolSetCreate, ToolSetResponse
-from app.schemas.common import success_response, error_response
-from app.api.deps import get_current_user
+from app.services.toolset_generator import generate_resolved_steps
 
 
 router = APIRouter(prefix="/api/v1/toolsets", tags=["toolsets"])
@@ -32,43 +34,43 @@ async def create_toolset(
     
     if not questionnaire:
         return error_response("NOT_FOUND", "Questionnaire not found")
-    
-    # Generate resolved steps based on questionnaire answers
-    # This is simplified - in production, you'd have more complex logic
-    resolved_steps = []
-    
-    # Add some example steps based on answers
-    ide_choice = questionnaire.answers.get("f_ide", "VSCode")
-    
-    resolved_steps.append({
-        "id": str(uuid.uuid4()),
-        "title": f"Install {ide_choice}",
-        "instructions": f"Download and install {ide_choice} from the official website",
-        "commands": [f"brew install --cask {'visual-studio-code' if ide_choice == 'VSCode' else 'cursor'}"],
-        "validator": {
-            "type": "command",
-            "params": {"command": f"{'code' if ide_choice == 'VSCode' else 'cursor'} --version"}
-        }
-    })
-    
-    resolved_steps.append({
-        "id": str(uuid.uuid4()),
-        "title": "Clone repository",
-        "instructions": "Clone the main repository to your local machine",
-        "commands": ["git clone git@github.com:acme/main.git"],
-        "validator": None
-    })
-    
-    resolved_steps.append({
-        "id": str(uuid.uuid4()),
-        "title": "Install dependencies",
-        "instructions": "Install project dependencies",
-        "commands": ["cd main", "make setup"],
-        "validator": {
-            "type": "command",
-            "params": {"command": "make test"}
-        }
-    })
+
+    # Fetch related template for questionnaire validation
+    template_result = await db.execute(
+        select(OnboardingTemplate).where(
+            and_(
+                OnboardingTemplate.id == questionnaire.template_id,
+                OnboardingTemplate.company_id == current_user.company_id
+            )
+        )
+    )
+    template = template_result.scalar_one_or_none()
+
+    if not template:
+        return error_response("NOT_FOUND", "Template not found for questionnaire")
+
+    template_parts: list[TemplatePart] = []
+
+    if template.part_ids:
+        parts_result = await db.execute(
+            select(TemplatePart).where(
+                and_(
+                    TemplatePart.company_id == current_user.company_id,
+                    TemplatePart.id.in_(template.part_ids)
+                )
+            )
+        )
+        parts_by_id = {part.id: part for part in parts_result.scalars().all()}
+        template_parts = [
+            parts_by_id[part_id]
+            for part_id in template.part_ids
+            if part_id in parts_by_id
+        ]
+
+    resolved_steps = await generate_resolved_steps(
+        questionnaire.answers or {},
+        template_parts
+    )
     
     # Create toolset
     toolset = ToolSet(
