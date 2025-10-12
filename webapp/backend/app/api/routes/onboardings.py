@@ -6,10 +6,11 @@ from uuid import UUID
 import uuid
 from app.db.session import get_db
 from app.models.onboarding import OnboardingState, OnboardingStatus
+from app.models.template import OnboardingTemplate
 from app.models.questionnaire import ToolSet
 from app.models.event import Event
 from app.models.user import User
-from app.schemas.onboarding import OnboardingCreate, OnboardingResponse, StepValidate
+from app.schemas.onboarding import OnboardingCreate, OnboardingResponse, StepValidate, RecentOnboardingItem
 from app.schemas.common import success_response, error_response
 from app.api.deps import get_current_user
 
@@ -85,6 +86,72 @@ async def get_onboardings(
     
     response = [OnboardingResponse.from_orm(o) for o in onboardings]
     return success_response([r.dict() for r in response])
+
+
+@router.get("/recent")
+async def get_recent_onboardings(
+    limit: int = 6,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if limit <= 0:
+        limit = 6
+
+    # Join OnboardingState with User and Template for enriched display
+    result = await db.execute(
+        select(OnboardingState, User, OnboardingTemplate)
+        .join(User, User.id == OnboardingState.user_id)
+        .join(OnboardingTemplate, OnboardingTemplate.id == OnboardingState.template_id)
+        .where(OnboardingState.company_id == current_user.company_id)
+        .order_by(OnboardingState.updated_at.desc())
+        .limit(limit)
+    )
+    rows = result.all()
+
+    items: list[RecentOnboardingItem] = []
+    for state, user, template in rows:
+        items.append(RecentOnboardingItem(
+            id=state.id,
+            status=state.status.value,
+            progress=state.progress,
+            created_at=state.created_at,
+            updated_at=state.updated_at,
+            user_name=user.name or "Member",
+            role_key=template.role_key,
+            template_version=template.version,
+        ))
+
+    return success_response([i.dict() for i in items])
+
+
+@router.get("/enriched")
+async def get_enriched_onboardings(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(
+        select(OnboardingState, User, OnboardingTemplate)
+        .join(User, User.id == OnboardingState.user_id)
+        .join(OnboardingTemplate, OnboardingTemplate.id == OnboardingState.template_id)
+        .where(OnboardingState.company_id == current_user.company_id)
+        .order_by(OnboardingState.updated_at.desc())
+    )
+    rows = result.all()
+
+    items: list[RecentOnboardingItem] = []
+    for state, user, template in rows:
+        items.append(RecentOnboardingItem(
+            id=state.id,
+            status=state.status.value,
+            progress=state.progress,
+            created_at=state.created_at,
+            updated_at=state.updated_at,
+            user_name=user.name or "Member",
+            role_key=template.role_key,
+            template_version=template.version,
+        ))
+
+    return success_response([i.dict() for i in items])
 
 
 @router.get("/{onboarding_id}")

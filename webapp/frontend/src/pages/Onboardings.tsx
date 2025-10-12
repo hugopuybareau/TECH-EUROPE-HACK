@@ -12,12 +12,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { onboardings } from "@/lib/demo-data";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+
+interface EnrichedOnboarding {
+  id: string;
+  status: "active" | "completed" | "paused";
+  progress: number;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  role_key: string;
+  template_version: number;
+}
 
 export default function Onboardings() {
   const navigate = useNavigate();
+  const { data: onboardings = [], isLoading } = useQuery<EnrichedOnboarding[]>({
+    queryKey: ["onboardings", "enriched"],
+    queryFn: () => api.get(`/api/v1/onboardings/enriched`),
+  });
 
   return (
     <AppShell title="Onboardings">
@@ -29,7 +45,11 @@ export default function Onboardings() {
           </div>
         </div>
 
-        {onboardings.length === 0 ? (
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">Loading…</CardContent>
+          </Card>
+        ) : onboardings.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
               <p className="text-muted-foreground text-center mb-4">
@@ -63,24 +83,29 @@ export default function Onboardings() {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8">
                             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                              {onboarding.developerAvatar}
+                              {onboarding.user_name
+                                .split(" ")
+                                .map((s) => s[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="font-medium">{onboarding.developerName}</span>
+                          <span className="font-medium">{onboarding.user_name}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="capitalize">{onboarding.role}</Badge>
+                        <Badge variant="secondary" className="capitalize">{onboarding.role_key}</Badge>
                       </TableCell>
-                      <TableCell>v{onboarding.templateVersion}</TableCell>
+                      <TableCell>v{onboarding.template_version}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3 min-w-[150px]">
                           <ProgressBar value={onboarding.progress} className="flex-1" />
                           <span className="text-sm font-medium">{onboarding.progress}%</span>
                         </div>
                       </TableCell>
-                      <TableCell>{format(new Date(onboarding.startedAt), "MMM d, yyyy")}</TableCell>
-                      <TableCell>{format(new Date(onboarding.updatedAt), "MMM d, h:mm a")}</TableCell>
+                      <TableCell>{format(new Date(onboarding.created_at), "MMM d, yyyy")}</TableCell>
+                      <TableCell>{format(new Date(onboarding.updated_at), "MMM d, h:mm a")}</TableCell>
                       <TableCell>
                         <StatusPill status={onboarding.status} />
                       </TableCell>

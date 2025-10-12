@@ -50,3 +50,14 @@ class ScanResultPayload(BaseModel):
     scan_id: UUID
     summary_markdown: str
     template_parts: list[TemplatePartData]
+
+
+class RecentScanItem(BaseModel):
+    id: UUID
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    repo: dict
+
+    class Config:
+        from_attributes = True

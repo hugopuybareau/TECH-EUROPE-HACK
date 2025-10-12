@@ -7,7 +7,7 @@ from app.db.session import get_db
 from app.models.repo import Repo, RepoScan, RepoProvider, ScanStatus
 from app.models.user import User
 from app.models.template import TemplatePart
-from app.schemas.repo import RepoCreate, RepoResponse, RepoScanResponse, ScanResultPayload
+from app.schemas.repo import RepoCreate, RepoResponse, RepoScanResponse, ScanResultPayload, RecentScanItem
 from app.schemas.common import success_response, error_response
 from app.api.deps import get_current_user, require_admin
 from app.core.config import settings
@@ -143,6 +143,44 @@ async def scan_repo(
     return success_response(response.dict())
 
 
+@router.get("/scans/recent")
+async def get_recent_scans(
+    limit: int = 1,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if limit <= 0:
+        limit = 1
+
+    result = await db.execute(
+        select(RepoScan, Repo)
+        .join(Repo, Repo.id == RepoScan.repo_id)
+        .where(RepoScan.company_id == current_user.company_id)
+        .order_by(RepoScan.updated_at.desc())
+        .limit(limit)
+    )
+
+    rows = result.all()
+
+    items: list[RecentScanItem] = []
+    for scan, repo in rows:
+        items.append(RecentScanItem(
+            id=scan.id,
+            status=scan.status.value,
+            created_at=scan.created_at,
+            updated_at=scan.updated_at,
+            repo={
+                "id": str(repo.id),
+                "provider": repo.provider.value,
+                "org": repo.org,
+                "name": repo.name,
+                "default_branch": repo.default_branch,
+            },
+        ))
+
+    # Return list for consistency even when limit=1
+    return success_response([item.dict() for item in items])
+
 @router.get("/{repo_id}/scans/{scan_id}")
 async def get_scan(
     repo_id: UUID,
@@ -213,4 +251,3 @@ async def receive_scan_result(
         "status": scan.status.value,
         "created_parts": [str(part.id) for part in created_parts]
     })
-

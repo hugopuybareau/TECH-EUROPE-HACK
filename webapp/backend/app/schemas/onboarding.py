@@ -29,3 +29,17 @@ class OnboardingResponse(BaseModel):
 class StepValidate(BaseModel):
     status: str  # "passed" | "failed"
     details: Optional[Dict[str, Any]] = None
+
+
+class RecentOnboardingItem(BaseModel):
+    id: UUID
+    status: str
+    progress: int
+    created_at: datetime
+    updated_at: datetime
+    user_name: str
+    role_key: str
+    template_version: int
+
+    class Config:
+        from_attributes = True

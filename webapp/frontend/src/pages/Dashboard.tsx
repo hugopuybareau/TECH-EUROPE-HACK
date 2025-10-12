@@ -1,19 +1,69 @@
 import { AppShell } from "@/components/layout/AppShell";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ProgressBar } from "@/components/ProgressBar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/StatusPill";
 import { Users, Clock, TrendingUp, GitBranch, Plus, UserPlus } from "lucide-react";
-import { onboardings, repositories } from "@/lib/demo-data";
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+
+interface ApiOnboarding {
+  id: string;
+  status: "active" | "completed" | "paused";
+  progress: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface RecentOnboardingItem {
+  id: string;
+  status: "active" | "completed" | "paused";
+  progress: number;
+  created_at: string;
+  updated_at: string;
+  user_name: string;
+  role_key: string;
+  template_version: number;
+}
+
+interface RecentScanItem {
+  id: string;
+  status: "queued" | "running" | "done" | "error";
+  created_at: string;
+  updated_at: string;
+  repo: {
+    id: string;
+    provider: string;
+    org: string;
+    name: string;
+    default_branch: string;
+  };
+}
 
 export default function Dashboard() {
+  const { data: onboardings = [] } = useQuery<ApiOnboarding[]>({
+    queryKey: ["onboardings"],
+    queryFn: () => api.get("/api/v1/onboardings"),
+  });
+
+  const { data: recentScans = [] } = useQuery<RecentScanItem[]>({
+    queryKey: ["recent-scans", 3],
+    queryFn: () => api.get(`/api/v1/repos/scans/recent?limit=3`),
+  });
+
+  const { data: recentOnboardings = [] } = useQuery<RecentOnboardingItem[]>({
+    queryKey: ["recent-onboardings", 6],
+    queryFn: () => api.get(`/api/v1/onboardings/recent?limit=6`),
+  });
+
   const activeOnboardings = onboardings.filter(o => o.status === "active");
-  const avgCompletion = Math.round(
-    activeOnboardings.reduce((sum, o) => sum + o.progress, 0) / activeOnboardings.length
-  );
-  const todayCount = 3; // Mock data
-  const latestScans = repositories.slice(0, 3);
+  const avgCompletion = activeOnboardings.length
+    ? Math.round(activeOnboardings.reduce((sum, o) => sum + o.progress, 0) / activeOnboardings.length)
+    : 0;
+  const todayCount = onboardings.filter(o => isSameDay(new Date(o.updated_at), new Date())).length;
 
   return (
     <AppShell title="Dashboard">
@@ -62,7 +112,7 @@ export default function Dashboard() {
               <GitBranch className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{latestScans.length}</div>
+              <div className="text-2xl font-bold">{recentScans.length}</div>
               <p className="text-xs text-muted-foreground">Recent scans completed</p>
             </CardContent>
           </Card>
@@ -72,29 +122,43 @@ export default function Dashboard() {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Latest Onboardings</CardTitle>
-              <CardDescription>Recent developer onboarding progress</CardDescription>
+              <CardDescription>Recent onboarding progress</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {onboardings.slice(0, 6).map((onboarding) => (
-                  <div key={onboarding.id} className="flex items-center gap-4">
-                    <Avatar>
-                      <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                        {onboarding.developerAvatar}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">{onboarding.developerName}</p>
-                        <p className="text-sm text-muted-foreground capitalize">{onboarding.role}</p>
+              <div className="space-y-4">
+                {recentOnboardings.map((o) => (
+                  <div key={o.id} className="grid grid-cols-1 md:grid-cols-6 gap-3 items-center">
+                    <div className="flex items-center gap-3 md:col-span-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                          {o.user_name
+                            .split(" ")
+                            .map((s) => s[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="text-sm font-medium">{o.user_name}</div>
+                        <div className="text-xs text-muted-foreground">v{o.template_version}</div>
                       </div>
+                    </div>
+                    <div className="md:col-span-1">
+                      <Badge variant="secondary" className="capitalize">{o.role_key}</Badge>
+                    </div>
+                    <div className="md:col-span-2">
                       <div className="flex items-center gap-3">
-                        <ProgressBar value={onboarding.progress} className="flex-1" />
-                        <span className="text-sm font-medium">{onboarding.progress}%</span>
+                        <ProgressBar value={o.progress} className="flex-1" />
+                        <span className="text-sm font-medium">{o.progress}%</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Last activity: {format(new Date(onboarding.updatedAt), "MMM d, h:mm a")}
-                      </p>
+                    </div>
+                    <div className="md:col-span-1 flex justify-end">
+                      <StatusPill status={o.status} />
+                    </div>
+                    <div className="md:col-span-6 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+                      <div>Started: {format(new Date(o.created_at), "MMM d, yyyy")}</div>
+                      <div className="text-right">Updated: {format(new Date(o.updated_at), "MMM d, h:mm a")}</div>
                     </div>
                   </div>
                 ))}
@@ -126,19 +190,31 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {latestScans.map((repo) => (
-                    <div key={repo.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{repo.org}/{repo.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(repo.lastScanTime), "MMM d, h:mm a")}
-                        </p>
-                      </div>
-                      <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full">
-                        Done
-                      </span>
-                    </div>
-                  ))}
+                  {recentScans.length > 0 ? (
+                    recentScans.map((s) => {
+                      const statusClass =
+                        s.status === "done"
+                          ? "bg-primary text-primary-foreground"
+                          : s.status === "error"
+                          ? "bg-destructive text-destructive-foreground"
+                          : "bg-accent text-accent-foreground";
+                      return (
+                        <div key={s.id} className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium">{s.repo.org}/{s.repo.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {format(new Date(s.updated_at), "MMM d, h:mm a")}
+                            </p>
+                          </div>
+                          <span className={`text-xs px-2 py-1 rounded-full ${statusClass}`}>
+                            {s.status}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No scans yet</p>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -6,6 +6,8 @@ from uuid import UUID
 from app.db.session import get_db
 from app.models.template import OnboardingTemplate, TemplateStatus
 from app.models.user import User
+from app.models.questionnaire import Questionnaire, ToolSet
+from app.models.onboarding import OnboardingState
 from app.schemas.template import OnboardingTemplateCreate, OnboardingTemplateUpdate, OnboardingTemplateResponse
 from app.schemas.common import success_response, error_response
 from app.api.deps import get_current_user, require_admin
@@ -160,7 +162,64 @@ async def delete_template(
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(
+    # First verify the template exists and belongs to this company
+    template_result = await db.execute(
+        select(OnboardingTemplate).where(
+            and_(
+                OnboardingTemplate.id == template_id,
+                OnboardingTemplate.company_id == current_user.company_id,
+            )
+        )
+    )
+    template = template_result.scalar_one_or_none()
+
+    if not template:
+        return error_response("NOT_FOUND", "Template not found")
+
+    # Delete related onboarding states first
+    await db.execute(
+        delete(OnboardingState).where(
+            and_(
+                OnboardingState.template_id == template_id,
+                OnboardingState.company_id == current_user.company_id,
+            )
+        )
+    )
+
+    # Get questionnaires related to this template
+    questionnaires_result = await db.execute(
+        select(Questionnaire.id).where(
+            and_(
+                Questionnaire.template_id == template_id,
+                Questionnaire.company_id == current_user.company_id,
+            )
+        )
+    )
+    questionnaire_ids = [row[0] for row in questionnaires_result.all()]
+
+    # Delete toolsets related to those questionnaires
+    if questionnaire_ids:
+        await db.execute(
+            delete(ToolSet).where(
+                and_(
+                    ToolSet.questionnaire_id.in_(questionnaire_ids),
+                    ToolSet.company_id == current_user.company_id,
+                )
+            )
+        )
+
+    # Delete questionnaires
+    await db.execute(
+        delete(Questionnaire).where(
+            and_(
+                Questionnaire.template_id == template_id,
+                Questionnaire.company_id == current_user.company_id,
+            )
+        )
+    )
+
+    # Finally, delete the template itself
+    await db.execute(
         delete(OnboardingTemplate).where(
             and_(
                 OnboardingTemplate.id == template_id,
@@ -168,7 +227,6 @@ async def delete_template(
             )
         )
     )
+
     await db.commit()
-    if result.rowcount == 0:
-        return error_response("NOT_FOUND", "Template not found")
     return success_response({"deleted": True})
