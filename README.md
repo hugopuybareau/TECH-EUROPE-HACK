@@ -97,6 +97,8 @@ A separate desktop application that developers install to:
 - **Integration**: OpenAI API for repository analysis
 - **Workflow**: Webhook-triggered repository scanning and template generation
 
+
+
 ---
 
 ## Sponsor Technologies
