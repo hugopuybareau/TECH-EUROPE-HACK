@@ -35,7 +35,7 @@ const Login = () => {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">OnboardHub</CardTitle>
+          <CardTitle className="text-3xl font-bold">silveragents</CardTitle>
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
